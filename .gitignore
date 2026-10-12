@@ -1,0 +1,6 @@
+node_modules/
+dist/
+*.log
+.DS_Store
+# Made from a Chipyard checkout by scripts/make_fixtures.py; not kept in the repo.
+test/fixtures/

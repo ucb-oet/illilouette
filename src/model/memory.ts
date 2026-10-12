@@ -1,0 +1,140 @@
+// A source over a waterfall file loaded whole in the browser.
+import type { Row, Waterfall } from '../file/waterfall';
+import type { Info, Referrer, RowView, Source, TypeSummary } from './source';
+
+export class MemorySource implements Source {
+  readonly info: Info;
+  private readonly views: (RowView | undefined)[];
+  private readonly starts: number[];
+  private readonly byId = new Map<string, number>();
+  private referrersOf: Map<number, Referrer[]> | null = null;
+
+  constructor(private readonly w: Waterfall) {
+    this.views = new Array(w.rows.length);
+    this.starts = w.rows.map((r) => (r.segments.length ? r.segments[0].from : r.events.length ? r.events[0].cycle : w.firstCycle));
+    w.rows.forEach((r, i) => this.byId.set(`${r.type}#${r.id}`, i));
+    const t = w.strings;
+    this.info = {
+      title: w.title,
+      firstCycle: w.firstCycle,
+      lastCycle: w.lastCycle,
+      rowCount: w.rows.length,
+      types: w.types.map((type, ti) => {
+        const labelWidths: number[] = [];
+        let idWidth = 1;
+        for (const r of w.rows) {
+          if (r.type !== ti) continue;
+          r.label.forEach((s, k) => (labelWidths[k] = Math.max(labelWidths[k] ?? 0, t[s].length)));
+          idWidth = Math.max(idWidth, String(r.id).length);
+        }
+        return { name: t[type.name], stages: type.stages.map((s) => t[s]), labelWidths, idWidth };
+      }),
+      summary: w.types.map((type, ti) => summarize(t[type.name], ti, w)),
+    };
+  }
+
+  async rows(first: number, last: number): Promise<RowView[]> {
+    const out: RowView[] = [];
+    for (let i = Math.max(0, first); i < Math.min(last, this.w.rows.length); i++) out.push(this.view(i));
+    return out;
+  }
+
+  async rowAt(cycle: number): Promise<number> {
+    // Rows are in creation order, so starts rise; step back over earlier rows still alive at the cycle.
+    let lo = 0;
+    let hi = this.starts.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (this.starts[mid] < cycle) lo = mid + 1;
+      else hi = mid;
+    }
+    let i = Math.min(lo, this.starts.length - 1);
+    for (let back = 0; back < 256 && i > 0; back++) {
+      const prev = this.w.rows[i - 1];
+      if (this.starts[i - 1] <= cycle && (prev.end === null || prev.end > cycle)) i--;
+      else if (this.starts[i - 1] > cycle) i--;
+      else break;
+    }
+    return Math.max(0, i);
+  }
+
+  async find(id: number, type?: number): Promise<number | null> {
+    if (type !== undefined) return this.byId.get(`${type}#${id}`) ?? null;
+    for (let ti = 0; ti < this.w.types.length; ti++) {
+      const i = this.byId.get(`${ti}#${id}`);
+      if (i !== undefined) return i;
+    }
+    return null;
+  }
+
+  async referrers(row: number): Promise<Referrer[]> {
+    if (!this.referrersOf) {
+      const t = this.w.strings;
+      const map = new Map<number, Referrer[]>();
+      this.w.rows.forEach((r, i) => {
+        for (const e of r.events) {
+          for (const f of e.fields) {
+            if (f.row === null || f.row === i) continue;
+            const list = map.get(f.row) ?? [];
+            list.push({ row: i, cycle: e.cycle, event: t[this.w.sites[e.site].event], field: t[f.name] });
+            map.set(f.row, list);
+          }
+        }
+      });
+      this.referrersOf = map;
+    }
+    return this.referrersOf.get(row) ?? [];
+  }
+
+  private view(i: number): RowView {
+    const cached = this.views[i];
+    if (cached) return cached;
+    const w = this.w;
+    const t = w.strings;
+    const r: Row = w.rows[i];
+    const lastTo = r.end ?? w.lastCycle + 1;
+    const fieldView = (f: { name: number; text: number; row: number | null }) => ({ name: t[f.name], text: t[f.text], row: f.row });
+    const view: RowView = {
+      index: i,
+      type: r.type,
+      id: r.id,
+      label: r.label.map((s) => t[s]),
+      segments: r.segments.map((s, k) => ({
+        from: s.from,
+        to: k + 1 < r.segments.length ? r.segments[k + 1].from : lastTo,
+        stage: s.stage,
+        held: s.held,
+      })),
+      start: this.starts[i],
+      end: r.end,
+      endedBy: r.end === null ? null : t[r.endedBy],
+      normalEnd: r.normalEnd,
+      fields: r.fields.map(fieldView),
+      events: r.events.map((e) => {
+        const site = w.sites[e.site];
+        return { cycle: e.cycle, name: t[site.event], source: t[site.source], instance: t[site.instance], effect: e.effect, fields: e.fields.map(fieldView) };
+      }),
+    };
+    this.views[i] = view;
+    return view;
+  }
+}
+
+function summarize(name: string, type: number, w: Waterfall): TypeSummary {
+  const ends = new Map<string, { name: string; normal: boolean; rows: number }>();
+  let rows = 0;
+  let live = 0;
+  for (const r of w.rows) {
+    if (r.type !== type) continue;
+    rows++;
+    if (r.end === null) {
+      live++;
+      continue;
+    }
+    const end = w.strings[r.endedBy];
+    const entry = ends.get(end) ?? { name: end, normal: r.normalEnd, rows: 0 };
+    entry.rows++;
+    ends.set(end, entry);
+  }
+  return { name, rows, ends: [...ends.values()].sort((a, b) => b.rows - a.rows), live };
+}
