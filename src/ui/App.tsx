@@ -89,10 +89,9 @@ function Viewer({ source, onOpen }: { source: MemorySource; onOpen: (f: File) =>
       if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
       const k = ev.key;
       const x = c.hover ? c.hover.x : c.gutterW + c.plotW / 2;
-      const y = c.hover ? c.hover.y : c.height / 2;
       const rows = Math.max(1, Math.floor((c.height - 28) / c.rowH));
       if (k === 'q' || k === 'e') c.zoomTime(x, k === 'e' ? 1.25 : 0.8);
-      else if (k === 'Q' || k === 'E') c.zoomRows(y, k === 'E' ? 1.25 : 0.8);
+      else if (k === 'Q' || k === 'E') c.zoomRows(k === 'E' ? 1.25 : 0.8, c.hover ? c.hover.y : null);
       else if (k === 'w' || k === 's') c.scrollRows((k === 's' ? 1 : -1) * Math.max(c.rowH, (rows * c.rowH) / 8));
       else if (k === 'a' || k === 'd') c.panTime(((k === 'd' ? 1 : -1) * c.visibleCycles) / 8);
       else if (k === 'f') void c.focusSelected();

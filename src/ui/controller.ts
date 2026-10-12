@@ -130,10 +130,24 @@ export class Controller {
     this.changed();
   }
 
-  /** Zooms rows around a height on the canvas. */
-  zoomRows(y: number, factor: number): void {
-    const row = (this.y0 + y - RULER) / this.rowH;
-    this.rowH = Math.min(40, Math.max(1, this.rowH * factor));
+  /** Zooms rows, keeping in place the row being looked at: the selected row while it is on screen, else the row
+   *  under the pointer, else the middle of the view. */
+  zoomRows(factor: number, pointerY: number | null): void {
+    const next = Math.min(40, Math.max(1, this.rowH * factor));
+    let row: number;
+    let y: number;
+    const sel = this.selected;
+    if (sel !== null && this.rowY(sel) >= RULER && this.rowY(sel) + this.rowH <= this.height) {
+      row = sel + 0.5;
+      y = this.rowY(sel) + this.rowH / 2;
+    } else if (pointerY !== null && pointerY > RULER) {
+      row = (this.y0 + pointerY - RULER) / this.rowH;
+      y = pointerY;
+    } else {
+      y = RULER + (this.height - RULER) / 2;
+      row = (this.y0 + y - RULER) / this.rowH;
+    }
+    this.rowH = next;
     this.y0 = row * this.rowH - (y - RULER);
     this.clamp();
     this.changed();
