@@ -348,9 +348,10 @@ function drawLabels(ctx: CanvasRenderingContext2D, c: Controller, th: Theme, row
     ctx.textAlign = 'left';
     r.label.forEach((text, k) => {
       const lastLabel = k === r.label.length - 1;
-      const room = lastLabel ? c.gutterW - x - 10 : (t.labelWidths[k] ?? text.length) * charW;
-      if (room > charW && text) {
-        const shown = ellipsize(ctx, text, room);
+      // Earlier columns are as wide as their longest text, so they are drawn whole; the gutter's clip bounds them.
+      const room = c.gutterW - x - 10;
+      if (text && (!lastLabel || room > charW)) {
+        const shown = lastLabel ? ellipsize(ctx, text, room) : text;
         ctx.fillStyle = muted(r) ? th.overlay1 : lastLabel ? th.text : th.subtext0;
         ctx.fillText(shown, x, cy);
         if (muted(r) && lastLabel) {
