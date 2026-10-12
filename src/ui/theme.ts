@@ -83,6 +83,22 @@ function hatchPattern(ctx: CanvasRenderingContext2D, color: string, wash: number
   return ctx.createPattern(tile, 'repeat')!;
 }
 
+/** Calls back whenever the colors may have changed: the palette toggle, the system's light or dark setting, or the
+ *  fonts finishing loading. Returns a function that stops listening. */
+export function onThemeChange(callback: () => void): () => void {
+  const media = matchMedia('(prefers-color-scheme: dark)');
+  media.addEventListener('change', callback);
+  const observer = new MutationObserver(callback);
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  let live = true;
+  void document.fonts?.ready.then(() => live && callback());
+  return () => {
+    live = false;
+    media.removeEventListener('change', callback);
+    observer.disconnect();
+  };
+}
+
 export type ThemeChoice = 'system' | 'light' | 'dark';
 
 const KEY = 'illilouette.theme';

@@ -2,7 +2,7 @@
 import { useEffect, useRef } from 'preact/hooks';
 import { fmt } from '../model/present';
 import { Controller } from './controller';
-import { MONO, readTheme, rgba } from './theme';
+import { MONO, onThemeChange, readTheme, rgba } from './theme';
 
 const PAD = 12;
 const MIN_MARKER = 6;
@@ -65,6 +65,7 @@ export function TimelineBar({ c }: { c: Controller }) {
     const observer = new ResizeObserver(resize);
     observer.observe(el);
     const unsubscribe = c.subscribe(draw);
+    const stopTheme = onThemeChange(draw);
 
     let dragging = false;
     const move = (ev: PointerEvent) => {
@@ -87,6 +88,7 @@ export function TimelineBar({ c }: { c: Controller }) {
     return () => {
       observer.disconnect();
       unsubscribe();
+      stopTheme();
       el.removeEventListener('pointerdown', onDown);
       el.removeEventListener('pointermove', onMove);
       el.removeEventListener('pointerup', onUp);

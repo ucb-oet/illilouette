@@ -4,7 +4,7 @@ import { effectText, fieldText, fmt, segmentAt, shortName } from '../model/prese
 import type { RowView } from '../model/source';
 import { Controller } from './controller';
 import { drawWaterfall } from './render';
-import { readTheme, type Theme } from './theme';
+import { onThemeChange, readTheme, type Theme } from './theme';
 
 export function Waterfall({ c }: { c: Controller }) {
   const wrap = useRef<HTMLDivElement>(null);
@@ -41,15 +41,10 @@ export function Waterfall({ c }: { c: Controller }) {
     const observer = new ResizeObserver(resize);
     observer.observe(wrap.current!);
 
-    const retheme = () => {
+    const stopTheme = onThemeChange(() => {
       theme = readTheme(ctx);
       c.redraw();
-    };
-    const media = matchMedia('(prefers-color-scheme: dark)');
-    media.addEventListener('change', retheme);
-    const themeObserver = new MutationObserver(retheme);
-    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-    void document.fonts?.ready.then(retheme);
+    });
 
     // Pointer: drag to move, click to select, hover for the tooltip.
     let drag: { x: number; y: number; x0: number; y0: number; moved: boolean } | null = null;
@@ -142,8 +137,7 @@ export function Waterfall({ c }: { c: Controller }) {
 
     return () => {
       observer.disconnect();
-      themeObserver.disconnect();
-      media.removeEventListener('change', retheme);
+      stopTheme();
       el.removeEventListener('pointerdown', onDown);
       el.removeEventListener('pointermove', onMove);
       el.removeEventListener('pointerup', onUp);
