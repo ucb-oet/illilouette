@@ -1,6 +1,7 @@
 // The viewer's state and navigation, shared by the canvas, which redraws from it, and the Preact panels, which
 // subscribe to it. Rows come from the source in chunks and are cached here.
 import { useEffect, useState } from 'preact/hooks';
+import { objectName } from '../model/present';
 import type { RowView, Source } from '../model/source';
 
 const CHUNK = 256;
@@ -221,7 +222,7 @@ export class Controller {
     }
     const i = await this.source.find(id, type);
     if (i === null) {
-      this.notice = `No ${typeName ?? 'object'} #${id} is in this file.`;
+      this.notice = `No ${typeName === undefined ? `object #${id}` : objectName(typeName, id)} is in this file.`;
       this.changed();
       return;
     }

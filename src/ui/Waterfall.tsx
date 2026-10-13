@@ -1,6 +1,6 @@
 // The waterfall canvas: sizing, pointer and wheel input, the label column's splitter, and the hover tooltip.
 import { useEffect, useRef } from 'preact/hooks';
-import { effectText, fieldText, fmt, segmentAt, shortName } from '../model/present';
+import { effectText, fieldText, fmt, objectName, segmentAt, shortName } from '../model/present';
 import type { RowView } from '../model/source';
 import { Controller } from './controller';
 import { drawWaterfall } from './render';
@@ -186,7 +186,7 @@ function showTip(c: Controller, tip: HTMLDivElement, rowIndex: number | null, cy
   } else {
     main.textContent = r.end !== null && cycle >= r.end ? `Ended by ${r.endedBy}` : 'In no stage';
   }
-  tip.append(main, div('sub', `cycle ${fmt(cycle)} · ${type.name} #${r.id}`));
+  tip.append(main, div('sub', `cycle ${fmt(cycle)} · ${objectName(type.name, r.id)}`));
   const label = r.label.filter(Boolean).join('  ');
   if (label) tip.append(div('label', label));
   if (s) {

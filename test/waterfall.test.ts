@@ -8,7 +8,7 @@ const fixture = (name: string) => new Uint8Array(readFileSync(new URL(`./fixture
 const haveFixtures = existsSync(new URL('./fixtures/sodor-rv32mi-p-illegal.waterfall.pb', import.meta.url));
 
 describe.skipIf(!haveFixtures)('decodeWaterfall on Sodor', () => {
-  // The JSON is the same file as Chipyard's eventtrace_waterfall.py wrote it, read back with the protobuf package.
+  // The JSON is the same file as Chipyard's `eventtrace waterfall` wrote it, read back with the protobuf package.
   for (const name of ['sodor-rv32ui-p-add.cycle-48079-to-flush', 'sodor-rv32ui-p-add.from-0x80000000']) {
     it(`reads ${name} as the protobuf package does`, () => {
       const expected = JSON.parse(readFileSync(new URL(`./fixtures/${name}.expected.json`, import.meta.url), 'utf8'));

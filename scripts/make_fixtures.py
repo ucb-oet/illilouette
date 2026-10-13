@@ -1,27 +1,36 @@
 #!/usr/bin/env python3
-"""Builds test/fixtures: waterfall files that Chipyard's eventtrace_waterfall.py writes from Sodor's traces, and,
-for the smaller ones, the same files as JSON, which the decoder's test compares against.
+"""Builds test/fixtures: waterfall files that Chipyard's `eventtrace waterfall` writes from Sodor's traces, and, for
+the smaller ones, the same files as JSON, read back with the protobuf package, which the decoder's test compares
+against. Needs cargo, to build the reader, and protoc, to compile the schema for the protobuf package.
 
-  uv run --project <chipyard>/tools/eventtrace/scripts scripts/make_fixtures.py <chipyard>
+  uv run --with protobuf scripts/make_fixtures.py <chipyard>
 """
 import json
 import os
 import subprocess
 import sys
+import tempfile
+
+from google.protobuf import descriptor_pb2, message_factory
 
 chipyard = os.path.abspath(sys.argv[1])
-scripts = os.path.join(chipyard, 'tools/eventtrace/scripts')
-sys.path.insert(0, scripts)
-from eventtrace_waterfall import message_classes  # noqa: E402
-
+reader = os.path.join(chipyard, 'tools/eventtrace/reader')
 here = os.path.dirname(os.path.abspath(__file__))
-schema = os.path.join(here, '..', 'proto', 'waterfall.proto')
+proto = os.path.join(here, '..', 'proto')
 out = os.path.join(here, '..', 'test', 'fixtures')
 sodor = 'chipyard.harness.TestHarness.TracedSodor5StageConfig'
 manifest = f'{chipyard}/sims/verilator/generated-src/{sodor}/{sodor}.eventtrace.json'
 traces = f'{chipyard}/sims/verilator/output/{sodor}'
-view = f'{scripts}/views/sodor.json'
-Waterfall = message_classes(schema)('Waterfall')
+view = f'{reader}/sodor/view.json'
+
+subprocess.run(['cargo', 'build', '--release', '--quiet', '--manifest-path', f'{reader}/Cargo.toml'], check=True)
+eventtrace = f'{reader}/target/release/eventtrace'
+
+with tempfile.NamedTemporaryFile() as descriptors:
+    subprocess.run(['protoc', f'--proto_path={proto}', f'--descriptor_set_out={descriptors.name}', 'waterfall.proto'],
+                   check=True)
+    files = descriptor_pb2.FileDescriptorSet.FromString(descriptors.read()).file
+Waterfall = message_factory.GetMessages(files)['illilouette.Waterfall']
 
 
 def plain(w):
@@ -51,8 +60,7 @@ def plain(w):
 for name, keep_json in [('rv32ui-p-add', False), ('rv32mi-p-illegal', False),
                         ('rv32ui-p-add.from-0x80000000', True), ('rv32ui-p-add.cycle-48079-to-flush', True)]:
     pb = os.path.join(out, f'sodor-{name}.waterfall.pb')
-    subprocess.run([sys.executable, f'{scripts}/eventtrace_waterfall.py', view, manifest, f'{traces}/{name}.trace', pb,
-                    schema], check=True)
+    subprocess.run([eventtrace, 'waterfall', view, manifest, f'{traces}/{name}.trace', pb], check=True)
     if keep_json:
         w = Waterfall.FromString(open(pb, 'rb').read())
         json.dump(plain(w), open(pb.replace('.waterfall.pb', '.expected.json'), 'w'), separators=(',', ':'))

@@ -4,6 +4,9 @@ import type { EventView, FieldView, RowView, SegmentView } from './source';
 
 export const fmt = (n: number) => n.toLocaleString('en-US');
 
+/** An object as the file's field values name one, such as "instruction#13". */
+export const objectName = (type: string, id: number) => `${type}#${id}`;
+
 export function segmentAt(row: RowView, cycle: number): SegmentView | null {
   for (const s of row.segments) if (cycle >= s.from && cycle < s.to) return s;
   return null;

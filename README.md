@@ -6,14 +6,14 @@ The viewer draws a **waterfall file**, `proto/waterfall.proto`, which a post-pro
 
 ## Making a waterfall file
 
-Until the Rust reader library replaces it, Chipyard's Python converter writes the file. It reads this repo's schema from a checkout beside Chipyard's:
+Chipyard's EventTrace reader writes the file with `eventtrace waterfall`. It keeps a copy of this repo's schema, which this repo owns:
 
 ```sh
-cd chipyard
-uv run --project tools/eventtrace/scripts tools/eventtrace/scripts/eventtrace_waterfall.py \
-  tools/eventtrace/scripts/views/sodor.json \
-  sims/verilator/generated-src/<long name>/<long name>.eventtrace.json \
-  sims/verilator/output/<long name>/<test>.trace \
+cd chipyard/tools/eventtrace/reader
+cargo build --release
+target/release/eventtrace waterfall sodor/view.json \
+  ../../../sims/verilator/generated-src/<long name>/<long name>.eventtrace.json \
+  ../../../sims/verilator/output/<long name>/<test>.trace \
   <test>.waterfall.pb
 ```
 
@@ -24,7 +24,7 @@ Node 24 or later:
 ```sh
 npm install
 npm run dev        # serves the page with live reload
-npm test           # decodes the fixtures and checks rows against the converter
+npm test           # decodes the fixtures and checks their rows
 npm run build      # type-checks, then writes the static page to dist/
 ```
 
@@ -54,7 +54,7 @@ How much a row shows follows the zoom: lettered cells up close, one run per stag
 - `src/file/`: protobuf decoding of the file.
 - `src/model/`: the source interface the drawing code reads rows through, the in-memory source, and text derived for display.
 - `src/ui/`: the page: controller, canvas renderer, timeline bar, detail panel, header.
-- `test/fixtures/`: waterfall files of Sodor traces, made by `scripts/make_fixtures.py` from a Chipyard checkout.
+- `test/fixtures/`: waterfall files of Sodor traces, made by `scripts/make_fixtures.py` from a Chipyard checkout with simulated Sodor traces: `uv run --with protobuf scripts/make_fixtures.py <chipyard>`, with cargo and protoc on the path.
 
 ## Not yet
 

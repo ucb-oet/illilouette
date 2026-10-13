@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { decodeWaterfall, WaterfallError } from '../file/waterfall';
 import { MemorySource } from '../model/memory';
-import { fmt, segmentAt } from '../model/present';
+import { fmt, objectName, segmentAt } from '../model/present';
 import { Controller, useController } from './controller';
 import { DetailPanel } from './DetailPanel';
 import { Header } from './Header';
@@ -54,7 +54,7 @@ function Landing({ onOpen, error, busy }: { onOpen: (f: File) => void; error: st
         <h1>illilouette</h1>
         <p>
           A pipeline waterfall for EventTrace. Drop a waterfall file here, or choose one. Chipyard's{' '}
-          <code>eventtrace_waterfall.py</code> writes it from a trace, its manifest, and the design's view.
+          <code>eventtrace waterfall</code> writes it from a trace, its manifest, and the design's view.
         </p>
         <label class="plain">
           {busy ? 'Opening…' : 'Choose a file'}
@@ -135,7 +135,7 @@ function Status({ c }: { c: Controller }) {
     if (r) {
       const t = c.source.info.types[r.type];
       const s = segmentAt(r, h.cycle);
-      readout += ` · ${t.name} #${r.id}${s ? ` · ${t.stages[s.stage]}${h.cycle < s.from + s.held ? ' · held' : ''}` : ''}`;
+      readout += ` · ${objectName(t.name, r.id)}${s ? ` · ${t.stages[s.stage]}${h.cycle < s.from + s.held ? ' · held' : ''}` : ''}`;
     }
   }
   const zoom = `${c.cellW >= 10 ? c.cellW.toFixed(0) : c.cellW.toFixed(2)} px/cycle · ${c.rowH.toFixed(0)} px rows · ${DETAIL_NAMES[detailOf(c)]}`;

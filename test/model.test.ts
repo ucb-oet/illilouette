@@ -39,7 +39,7 @@ describe.skipIf(!haveFixtures)('MemorySource on rv32mi-p-illegal', () => {
     const stall = r.events[1];
     const blocker = (await source.rows(stall.fields[0].row!, stall.fields[0].row! + 1))[0];
     expect(blocker.id).toBe(3427);
-    expect(fieldText(stall.fields[0], blocker, stall.cycle, stages)).toBe('blocker #3427 (in Execute)');
+    expect(fieldText(stall.fields[0], blocker, stall.cycle, stages)).toBe('blocker instruction#3427 (in Execute)');
   });
 
   it('finds rows that name a row', async () => {

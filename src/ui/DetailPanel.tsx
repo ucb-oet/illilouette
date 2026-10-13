@@ -1,7 +1,7 @@
 // The detail panel: the selected object, or with nothing selected, a summary of the file.
 import { Fragment } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
-import { effectText, fieldText, fmt, shortName, timeByStage } from '../model/present';
+import { effectText, fieldText, fmt, objectName, shortName, timeByStage } from '../model/present';
 import type { Referrer, RowView } from '../model/source';
 import { Controller, useController } from './controller';
 
@@ -120,9 +120,9 @@ function Selection({ c, s }: { c: Controller; s: Selected }) {
   return (
     <>
       <div>
-        <h2>{label.length ? label[label.length - 1] : `${type.name} #${row.id}`}</h2>
+        <h2>{label.length ? label[label.length - 1] : objectName(type.name, row.id)}</h2>
         <p class="sub">
-          {type.name} #{row.id}
+          {objectName(type.name, row.id)}
           {label.length > 1 ? ` · ${label.slice(0, -1).join(' · ')}` : ''}
         </p>
       </div>
@@ -166,7 +166,7 @@ function Selection({ c, s }: { c: Controller; s: Selected }) {
           <div class="links">
             {links.map((l) => (
               <button type="button" key={`${l.label}${l.row.index}`} onClick={() => go(l.row.index)}>
-                {l.label} #{l.row.id}
+                {l.label} {objectName(c.source.info.types[l.row.type].name, l.row.id)}
                 <span>{l.row.label.filter(Boolean).slice(-1)[0] ?? ''}</span>
               </button>
             ))}
