@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'preact/hooks';
 import { decodeWaterfall, WaterfallError } from '../file/waterfall';
 import { MemorySource } from '../model/memory';
 import { fmt, objectName, segmentAt } from '../model/present';
-import { Controller, useController } from './controller';
+import { Controller, useController, ZOOM_STEP } from './controller';
 import { DetailPanel } from './DetailPanel';
 import { Header } from './Header';
 import { DETAIL_NAMES, detailOf } from './render';
@@ -78,8 +78,8 @@ function Viewer({ source, onOpen }: { source: MemorySource; onOpen: (f: File) =>
   const c = useMemo(() => new Controller(source), [source]);
 
   useEffect(() => {
-    // Wait for the canvas to have a size, then open at the file's start.
-    const id = requestAnimationFrame(() => void c.home());
+    // Open at the file's start, once the canvas has its size.
+    void c.home();
     const onKey = (ev: KeyboardEvent) => {
       const target = ev.target as HTMLElement | null;
       if (target?.closest('input, textarea')) {
@@ -90,13 +90,15 @@ function Viewer({ source, onOpen }: { source: MemorySource; onOpen: (f: File) =>
       const k = ev.key;
       const x = c.hover ? c.hover.x : c.gutterW + c.plotW / 2;
       const rows = Math.max(1, Math.floor((c.height - 28) / c.rowH));
-      if (k === 'q' || k === 'e') c.zoomTime(x, k === 'e' ? 1.25 : 0.8);
-      else if (k === 'Q' || k === 'E') c.zoomRows(k === 'E' ? 1.25 : 0.8, c.hover ? c.hover.y : null);
+      if (k === 'q' || k === 'e') c.zoomTime(x, k === 'e' ? ZOOM_STEP : 1 / ZOOM_STEP);
+      else if (k === 'Q' || k === 'E') c.zoomRows(k === 'E' ? ZOOM_STEP : 1 / ZOOM_STEP, c.hover ? c.hover.y : null);
       else if (k === 'w' || k === 's') c.scrollRows((k === 's' ? 1 : -1) * Math.max(c.rowH, (rows * c.rowH) / 8));
       else if (k === 'a' || k === 'd') c.panTime(((k === 'd' ? 1 : -1) * c.visibleCycles) / 8);
       else if (k === 'f') void c.focusSelected();
       else if (k >= '1' && k <= '9') void c.toggleType(Number(k) - 1);
-      else if (k === '0') c.toggleArrows();
+      else if (k === 'r') c.toggleArrows();
+      else if (k === '0') void c.toSelectedEdge('start');
+      else if (k === '$') void c.toSelectedEdge('end');
       else if (k === 'Escape') c.select(null);
       else if (k === 'ArrowDown' || k === 'ArrowUp') c.moveSelection(k === 'ArrowDown' ? 1 : -1);
       else if (k === '/') document.getElementById('jump')?.focus();
@@ -105,7 +107,6 @@ function Viewer({ source, onOpen }: { source: MemorySource; onOpen: (f: File) =>
     };
     window.addEventListener('keydown', onKey);
     return () => {
-      cancelAnimationFrame(id);
       window.removeEventListener('keydown', onKey);
     };
   }, [c]);

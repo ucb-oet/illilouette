@@ -3,7 +3,9 @@ import { describe, expect, it } from 'vitest';
 import { decodeWaterfall } from '../src/file/waterfall';
 import { MemorySource } from '../src/model/memory';
 import { effectText, fieldText, segmentAt, timeByStage } from '../src/model/present';
-import { Controller, RULER } from '../src/ui/controller';
+import { Controller, RULER, ZOOM_STEP } from '../src/ui/controller';
+import { arrowsShown, detailOf } from '../src/ui/render';
+import { CHAR_EM, labelColumns, labelFontSize } from '../src/ui/labels';
 
 const load = (name: string) =>
   new MemorySource(decodeWaterfall(new Uint8Array(readFileSync(new URL(`./fixtures/${name}.waterfall`, import.meta.url)))));
@@ -118,11 +120,21 @@ describe.skipIf(!haveFixtures)('MemorySource on Rocket, with instructions under 
 describe.skipIf(!haveFixtures)('Controller hiding a type', () => {
   const open = async () => {
     const c = new Controller(load('rocket-rv64ui-p-add'));
-    c.width = 1200;
-    c.height = 800;
+    c.setSize(1200, 800);
     await c.home();
     return c;
   };
+
+  it('opens with the label column wide enough for every label, up to 40% of the waterfall', async () => {
+    const c = await open();
+    const { fullW } = labelColumns(c.source.info, new Set(), labelFontSize(c.rowH) * CHAR_EM);
+    expect(fullW).toBeGreaterThan(280);
+    expect(c.gutterW).toBe(Math.round(fullW));
+    const narrow = new Controller(c.source);
+    narrow.setSize(600, 800);
+    await narrow.home();
+    expect(narrow.gutterW).toBe(240);
+  });
 
   it('closes up the rows of a hidden type and opens them again', async () => {
     const c = await open();
@@ -157,5 +169,65 @@ describe.skipIf(!haveFixtures)('Controller hiding a type', () => {
     c.select(c.rowAtPlace(3));
     c.moveSelection(1);
     expect(c.selected).toBe(c.rowAtPlace(4));
+  });
+});
+
+describe.skipIf(!haveFixtures)('Controller panning to a selected object’s start and end', () => {
+  it('brings either end of a long miss into view, and its row with it', async () => {
+    const c = new Controller(load('rocket-rv64ui-p-add'));
+    c.setSize(1200, 800);
+    await c.home();
+    const before = c.x0;
+    await c.toSelectedEdge('end');
+    expect(c.x0).toBe(before);
+    const i = (await c.source.find(97, 1))!;
+    const packet = await c.rowAsync(i);
+    expect(packet.segments.map((s) => c.source.info.types[1].stages[s.stage])).toContain('Miss');
+    c.select(i);
+    await c.toSelectedEdge('end');
+    expect(c.xOf(packet.end! - 1)).toBeCloseTo(c.gutterW + (c.plotW * 2) / 3);
+    expect(c.rowY(i)).toBeGreaterThanOrEqual(RULER);
+    expect(c.rowY(i) + c.rowH).toBeLessThanOrEqual(c.height);
+    await c.toSelectedEdge('start');
+    expect(c.xOf(packet.events[0].cycle)).toBeCloseTo(c.gutterW + c.plotW / 3);
+  });
+});
+
+describe.skipIf(!haveFixtures)('Controller moving from the timeline bar', () => {
+  it('scrolls rows to the first object in the new range', async () => {
+    for (const name of ['rocket-rv64ui-p-add', 'sodor-rv32mi-p-illegal']) {
+      const c = new Controller(load(name));
+      c.setSize(1200, 800);
+      await c.home();
+      const { firstCycle, lastCycle } = c.source.info;
+      for (let k = 1; k < 20; k++) {
+        await c.moveToCycle(firstCycle + ((lastCycle - firstCycle) * k) / 20);
+        // Below one row of margin, the first row on screen lives in the view's cycles.
+        const r = await c.rowAsync(c.rowAtPlace(Math.floor(c.y0 / c.rowH) + 1));
+        expect(r.start).toBeLessThan(c.x0 + c.visibleCycles);
+        expect(r.end === null || r.end > c.x0).toBe(true);
+      }
+    }
+  });
+});
+
+describe.skipIf(!haveFixtures)('Arrows when zoomed out', () => {
+  it('go one zoom step after the label column loses its text, or the cells their letters', async () => {
+    const c = new Controller(load('rocket-rv64ui-p-add'));
+    c.setSize(1200, 800);
+    await c.home();
+    c.rowH = 13;
+    c.zoomRows(1 / ZOOM_STEP, null);
+    expect(c.rowH).toBeLessThan(12);
+    expect(arrowsShown(c)).toBe(true);
+    c.zoomRows(1 / ZOOM_STEP, null);
+    expect(arrowsShown(c)).toBe(false);
+    c.rowH = 18;
+    c.cellW = 15;
+    c.zoomTime(c.gutterW, 1 / ZOOM_STEP);
+    expect(detailOf(c)).toBe('cells');
+    expect(arrowsShown(c)).toBe(true);
+    c.zoomTime(c.gutterW, 1 / ZOOM_STEP);
+    expect(arrowsShown(c)).toBe(false);
   });
 });

@@ -2,16 +2,29 @@
 // lettered cells up close, one run per stage in the middle, solid rows far out.
 import { fmt } from '../model/present';
 import type { RowView } from '../model/source';
-import { Controller, RULER } from './controller';
+import { Controller, RULER, ZOOM_STEP } from './controller';
+import { EDGE, GAP, labelColumns, labelFontSize } from './labels';
 import { MONO, rgba, type Theme } from './theme';
 
 export type Detail = 'letters' | 'cells' | 'runs' | 'solid';
 
+/** Cells take letters from this many pixels per cycle, and rows this tall. */
+const LETTER_CELLS = 14;
+const LETTER_ROWS = 16;
+/** The label column shows text in rows this tall. */
+const LABEL_ROWS = 12;
+
 export function detailOf(c: Controller): Detail {
-  if (c.cellW >= 14 && c.rowH >= 16) return 'letters';
+  if (c.cellW >= LETTER_CELLS && c.rowH >= LETTER_ROWS) return 'letters';
   if (c.cellW >= 8) return 'cells';
   if (c.cellW >= 2.5) return 'runs';
   return 'solid';
+}
+
+/** Whether arrows show, the selection's included: not once zoomed out a step past where cells lose their letters or
+ *  the label column its text, where they would only clutter. */
+export function arrowsShown(c: Controller): boolean {
+  return c.cellW >= LETTER_CELLS / ZOOM_STEP && c.rowH >= LABEL_ROWS / ZOOM_STEP;
 }
 
 export const DETAIL_NAMES: Record<Detail, string> = {
@@ -87,9 +100,12 @@ export function drawWaterfall(ctx: CanvasRenderingContext2D, c: Controller, th: 
     ctx.fillRect(c.xOf(c.hover.cycle), RULER, Math.max(1, cw), H - RULER);
   }
 
-  const arrows: Arrow[] = [...c.related];
-  if (c.allArrows) {
-    for (const r of rows) for (const e of r.events) for (const f of e.fields) if (f.row !== null) arrows.push({ from: f.row, to: r.index, cycle: e.cycle });
+  const arrows: Arrow[] = [];
+  if (arrowsShown(c)) {
+    arrows.push(...c.related);
+    if (c.allArrows) {
+      for (const r of rows) for (const e of r.events) for (const f of e.fields) if (f.row !== null) arrows.push({ from: f.row, to: r.index, cycle: e.cycle });
+    }
   }
   const relatedRows = new Set(c.related.flatMap((a) => [a.from, a.to]));
   for (const r of rows) {
@@ -132,7 +148,7 @@ export function drawWaterfall(ctx: CanvasRenderingContext2D, c: Controller, th: 
         ctx.fillRect(0, c.rowY(r.index), gx, rowH);
       }
     }
-    if (rowH >= 12) drawLabels(ctx, c, th, rows);
+    if (rowH >= LABEL_ROWS) drawLabels(ctx, c, th, rows);
     ctx.restore();
     ctx.fillStyle = th.surface0;
     ctx.fillRect(gx - 1, 0, 1, H);
@@ -326,35 +342,29 @@ function drawArrow(ctx: CanvasRenderingContext2D, th: Theme, x: number, y1: numb
  *  line up across rows; the last label text is the main one. */
 function drawLabels(ctx: CanvasRenderingContext2D, c: Controller, th: Theme, rows: RowView[]): void {
   const info = c.source.info;
-  const size = c.rowH >= 18 ? 12 : 11;
-  ctx.font = MONO(size);
+  ctx.font = MONO(labelFontSize(c.rowH));
   ctx.textBaseline = 'middle';
   const charW = ctx.measureText('0').width;
-  const showType = info.types.length - c.hiddenTypes.size > 1;
-  const indent = 2 * charW;
-  const depth = (ancestors: number[]) => ancestors.filter((a) => !c.hiddenTypes.has(a)).length;
-  const deepest = Math.max(0, ...info.types.map((t, i) => (c.hiddenTypes.has(i) ? 0 : depth(t.ancestorTypes))));
-  const typeW = showType ? Math.max(...info.types.map((t) => t.name.length)) * charW + deepest * indent + 12 : 0;
-  const idW = Math.max(...info.types.map((t) => t.idWidth)) * charW;
+  const { showType, typeW, idW, indent } = labelColumns(info, c.hiddenTypes, charW);
   for (const r of rows) {
     const cy = c.rowY(r.index) + c.rowH / 2 + 0.5;
     const t = info.types[r.type];
-    let x = 10;
+    let x = EDGE;
     if (showType) {
       ctx.textAlign = 'left';
       ctx.fillStyle = th.overlay1;
-      ctx.fillText(t.name, x + depth(r.ancestorTypes) * indent, cy);
+      ctx.fillText(t.name, x + indent(r.ancestorTypes), cy);
       x += typeW;
     }
     ctx.textAlign = 'right';
     ctx.fillStyle = th.overlay1;
     ctx.fillText(String(r.id), x + idW, cy);
-    x += idW + 14;
+    x += idW + GAP;
     ctx.textAlign = 'left';
     r.label.forEach((text, k) => {
       const lastLabel = k === r.label.length - 1;
       // Earlier columns are as wide as their longest text, so they are drawn whole; the gutter's clip bounds them.
-      const room = c.gutterW - x - 10;
+      const room = c.gutterW - x - EDGE;
       if (text && (!lastLabel || room > charW)) {
         const shown = lastLabel ? ellipsize(ctx, text, room) : text;
         ctx.fillStyle = muted(r) ? th.overlay1 : lastLabel ? th.text : th.subtext0;
@@ -364,7 +374,7 @@ function drawLabels(ctx: CanvasRenderingContext2D, c: Controller, th: Theme, row
           ctx.fillRect(x, Math.round(cy), ctx.measureText(shown).width, 1);
         }
       }
-      x += (t.labelWidths[k] ?? text.length) * charW + 14;
+      x += (t.labelWidths[k] ?? text.length) * charW + GAP;
     });
   }
 }

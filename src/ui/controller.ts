@@ -3,11 +3,14 @@
 import { useEffect, useState } from 'preact/hooks';
 import { objectName } from '../model/present';
 import type { RowView, Source } from '../model/source';
+import { CHAR_EM, labelColumns, labelFontSize } from './labels';
 
 const CHUNK = 256;
 const MAX_CHUNKS = 64;
 
 export const RULER = 28;
+/** The factor one press of a zoom key zooms by. */
+export const ZOOM_STEP = 1.25;
 
 export interface Hover {
   row: number | null;
@@ -45,6 +48,12 @@ export class Controller {
   private place: Int32Array | null = null;
   /** Counts type toggles, so that a toggle whose rows arrive after a later one's is dropped. */
   private toggles = 0;
+  /** Counts moves from the timeline bar, likewise. */
+  private moves = 0;
+
+  private markSized!: () => void;
+  /** Resolves once the canvas has its size, which the view a file opens with depends on. */
+  private readonly sized = new Promise<void>((resolve) => (this.markSized = resolve));
 
   private chunks = new Map<number, RowView[]>();
   private pending = new Set<number>();
@@ -52,6 +61,12 @@ export class Controller {
   private redrawHook: (() => void) | null = null;
 
   constructor(readonly source: Source) {}
+
+  setSize(width: number, height: number): void {
+    this.width = Math.max(1, width);
+    this.height = Math.max(1, height);
+    this.markSized();
+  }
 
   get plotW(): number {
     return Math.max(1, this.width - this.gutterW);
@@ -248,6 +263,34 @@ export class Controller {
     this.changed();
   }
 
+  /** Pans time to the selected object's start, its first cycle a third of the way in from the left, or to its end,
+   *  its last cycle a third of the way in from the right; rows move only to bring its row into view. */
+  async toSelectedEdge(edge: 'start' | 'end'): Promise<void> {
+    if (this.selected === null) return;
+    const i = this.selected;
+    const row = await this.rowAsync(i);
+    if (this.selected !== i) return;
+    if (edge === 'start') this.x0 = Math.min(row.start, row.events[0]?.cycle ?? row.start) - this.visibleCycles / 3;
+    else this.x0 = (row.end ?? this.source.info.lastCycle + 1) - 1 - (this.visibleCycles * 2) / 3;
+    this.reveal(i);
+    this.clamp();
+    this.changed();
+  }
+
+  /** Moves the view to a cycle picked on the timeline bar: time centered on it, and rows scrolled so that the first
+   *  object alive in the view's cycles, or starting in them, is near the top. */
+  async moveToCycle(cycle: number): Promise<void> {
+    this.x0 = cycle - this.visibleCycles / 2;
+    this.clamp();
+    this.changed();
+    const move = ++this.moves;
+    const i = await this.source.rowAt(Math.floor(this.x0));
+    if (move !== this.moves || this.shownCount === 0) return;
+    this.y0 = (this.placeAtOrAfter(i) - 1) * this.rowH;
+    this.clamp();
+    this.changed();
+  }
+
   async jumpToCycle(cycle: number): Promise<void> {
     const i = await this.source.rowAt(cycle);
     this.y0 = this.placeAtOrAfter(i) * this.rowH - (this.height - RULER) / 4;
@@ -311,12 +354,16 @@ export class Controller {
   }
 
   /** The view a file opens with: its start, up close enough for lettered cells, with rows shrunk toward 40 in
-   *  view but kept tall enough for letters. */
+   *  view but kept tall enough for letters, and the label column wide enough for every label, up to 40% of the
+   *  waterfall. */
   async home(): Promise<void> {
+    await this.sized;
     const top = this.rowAtPlace(0);
     const [first] = this.shownCount ? await this.source.rows(top, top + 1) : [];
     this.cellW = 22;
     this.rowH = Math.max(16, Math.min(22, Math.floor((this.height - RULER) / 40)));
+    const { fullW } = labelColumns(this.source.info, this.hiddenTypes, labelFontSize(this.rowH) * CHAR_EM);
+    this.gutterW = Math.round(Math.min(fullW, this.width * 0.4));
     this.x0 = (first?.start ?? this.source.info.firstCycle) - 3;
     this.y0 = 0;
     this.clamp();

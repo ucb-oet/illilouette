@@ -61,7 +61,7 @@ export function Header({ c, onOpen }: { c: Controller; onOpen: (file: File) => v
           </button>
         ))}
         <button type="button" class="chip" aria-pressed={c.allArrows} onClick={() => c.toggleArrows()}>
-          <kbd>0</kbd>All arrows
+          <kbd>R</kbd>All arrows
         </button>
       </div>
       <div class="seg" role="group" aria-label="Palette">

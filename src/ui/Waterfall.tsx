@@ -30,8 +30,7 @@ export function Waterfall({ c }: { c: Controller }) {
     const resize = () => {
       dpr = window.devicePixelRatio || 1;
       const b = wrap.current!.getBoundingClientRect();
-      c.width = Math.max(1, b.width);
-      c.height = Math.max(1, b.height);
+      c.setSize(b.width, b.height);
       el.width = Math.round(c.width * dpr);
       el.height = Math.round(c.height * dpr);
       c.gutterW = Math.min(c.gutterW, Math.max(0, c.width - 160));

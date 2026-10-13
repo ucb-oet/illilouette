@@ -1,4 +1,5 @@
-// A plain bar of the whole trace: its cycle range, a marker for the current view, click or drag to move there.
+// A plain bar of the whole trace: its cycle range, a marker for the current view, click or drag to move there, with
+// the rows following to the objects in the new range.
 import { useEffect, useRef } from 'preact/hooks';
 import { fmt } from '../model/present';
 import { Controller } from './controller';
@@ -70,10 +71,7 @@ export function TimelineBar({ c }: { c: Controller }) {
     let dragging = false;
     const move = (ev: PointerEvent) => {
       const b = el.getBoundingClientRect();
-      const cycle = firstCycle + ((ev.clientX - b.left - PAD) / (W - PAD * 2)) * span;
-      c.x0 = cycle - c.visibleCycles / 2;
-      c.clamp();
-      c.changed();
+      void c.moveToCycle(firstCycle + ((ev.clientX - b.left - PAD) / (W - PAD * 2)) * span);
     };
     const onDown = (ev: PointerEvent) => {
       dragging = true;

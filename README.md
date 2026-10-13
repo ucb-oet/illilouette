@@ -35,6 +35,7 @@ Open the page and drop a waterfall file on it, or choose one.
 | Input | Does |
 |---|---|
 | Scroll / two-finger swipe | Move through rows; sideways or with Shift, pan time |
+| Click or drag the timeline bar | Move there; rows follow to the first object in the new range |
 | Pinch, Ctrl+scroll | Zoom time only |
 | `Q` / `E` | Zoom time out / in |
 | Shift+`Q` / `E` | Zoom rows |
@@ -43,7 +44,8 @@ Open the page and drop a waterfall file on it, or choose one.
 | `F` | Focus: bring the selection into view, its first event a third of the way in |
 | `↑` / `↓`, `Esc` | Move or clear the selection |
 | `1`–`9` | Show or hide an object type; its rows close up |
-| `0` | Show or hide arrows for everything on screen |
+| `0` / `$` | Pan to the selection's start or end, as vim's start and end of line |
+| `r` | Show or hide arrows for everything on screen; none show once zoomed out a step past where the label column loses its text or the cells their letters |
 | `/` | Jump to a cycle (`41440`) or an object (`#3454`, `instruction#3454`) |
 
 Rows come in the file's order. An object with a parent sits under it, such as a Rocket instruction under the fetch packet it decoded from, its type name indented; hiding the parent's type takes the indent away.
