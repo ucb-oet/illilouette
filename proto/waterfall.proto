@@ -61,6 +61,9 @@ message Row {
   // The fields its create event set, other than its stage.
   repeated Field fields = 8;
   repeated Event events = 9;
+  // The row index of its parent, as the view names it, such as an instruction's fetch packet. Absent for a root,
+  // including an object whose parent is not in the file.
+  optional uint64 parent = 10;
 }
 
 message Segment {
@@ -94,7 +97,7 @@ message Event {
 message Field {
   // Text index of its name.
   uint32 name = 1;
-  // Text index of its value, already formatted, such as "0x800000e4", "Decode", or "#3427".
+  // Text index of its value, already formatted, such as "0x800000e4", "Decode", or "instruction#3427".
   uint32 text = 2;
   // For a field naming another object in the file: that object's row index.
   optional uint64 row = 3;
