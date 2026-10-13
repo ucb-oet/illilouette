@@ -14,7 +14,7 @@ cargo build --release
 target/release/eventtrace waterfall sodor/view.json \
   ../../../sims/verilator/generated-src/<long name>/<long name>.eventtrace.json \
   ../../../sims/verilator/output/<long name>/<test>.trace \
-  <test>.waterfall.pb
+  <test>.waterfall
 ```
 
 ## Running
@@ -42,9 +42,11 @@ Open the page and drop a waterfall file on it, or choose one.
 | Click | Select an object; its arrows and details appear |
 | `F` | Focus: bring the selection into view, its first event a third of the way in |
 | `↑` / `↓`, `Esc` | Move or clear the selection |
-| `1`–`9` | Show or hide an object type |
+| `1`–`9` | Show or hide an object type; its rows close up |
 | `0` | Show or hide arrows for everything on screen |
 | `/` | Jump to a cycle (`41440`) or an object (`#3454`, `instruction#3454`) |
+
+Rows come in the file's order. An object with a parent sits under it, such as a Rocket instruction under the fetch packet it decoded from, its type name indented; hiding the parent's type takes the indent away.
 
 How much a row shows follows the zoom: lettered cells up close, one run per stage in the middle, solid rows far out. Hatched cycles are cycles in which an object was held in its stage. A dot marks an event that describes an object without moving or ending it, such as a stall. A red cap marks an object that left without its type's normal end, such as a squashed instruction.
 
@@ -54,12 +56,14 @@ How much a row shows follows the zoom: lettered cells up close, one run per stag
 - `src/file/`: protobuf decoding of the file.
 - `src/model/`: the source interface the drawing code reads rows through, the in-memory source, and text derived for display.
 - `src/ui/`: the page: controller, canvas renderer, timeline bar, detail panel, header.
-- `test/fixtures/`: waterfall files of Sodor traces, made by `scripts/make_fixtures.py` from a Chipyard checkout with simulated Sodor traces: `uv run --with protobuf scripts/make_fixtures.py <chipyard>`, with cargo and protoc on the path.
+- `test/fixtures/`: waterfall files that Chipyard's `eventtrace waterfall` wrote, copied in and not kept in the repo; the tests skip without them:
+  - `rocket-rv64ui-p-add.waterfall`: `sims/verilator/output/rocket-fetch/rv64ui-p-add.waterfall`, instructions under fetch packets;
+  - `sodor-<test>.waterfall`, for `rv32ui-p-add`, `rv32mi-p-illegal`, and `rv32ui-p-add.cycle-48079-to-flush`: written with `reader/sodor/view.json` from `sims/verilator/output/<long name>/<test>.trace`.
 
 ## Not yet
 
 - A local server, and a chunked file layout, for files too large to load in the browser.
 - Jump queries in the trigger syntax of `+eventtrace_start`, such as `event:instruction.decode,pc=0x80000148`.
 - `[` / `]` to the previous or next event of a kind; history of past selections; view state in the URL.
-- Several object types in one file: their row order, and rows closing up when a type is hidden.
+- Collapsing rows under their parent.
 - Comparing two traces.

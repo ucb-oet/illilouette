@@ -65,11 +65,11 @@ export function drawWaterfall(ctx: CanvasRenderingContext2D, c: Controller, th: 
   ctx.fillRect(0, 0, W, H);
 
   const first = Math.max(0, Math.floor(c.y0 / rowH));
-  const last = Math.min(info.rowCount, Math.ceil((c.y0 + H - RULER) / rowH) + 1);
+  const last = Math.min(c.shownCount, Math.ceil((c.y0 + H - RULER) / rowH) + 1);
   const rows: RowView[] = [];
-  for (let i = first; i < last; i++) {
-    const r = c.row(i);
-    if (r && !c.hiddenTypes.has(r.type)) rows.push(r);
+  for (let p = first; p < last; p++) {
+    const r = c.row(c.rowAtPlace(p));
+    if (r) rows.push(r);
   }
   const cStart = Math.floor(c.x0);
   const cEnd = Math.ceil(c.x0 + c.visibleCycles);
@@ -112,6 +112,7 @@ export function drawWaterfall(ctx: CanvasRenderingContext2D, c: Controller, th: 
     else drawSolid(ctx, c, th, r, y);
   }
   for (const a of arrows) {
+    if (c.placeOf(a.from) < 0 || c.placeOf(a.to) < 0) continue;
     const xc = c.xOf(a.cycle) + Math.min(cw, 24) / 2;
     drawArrow(ctx, th, xc, c.rowY(a.from) + rowH / 2, c.rowY(a.to) + rowH / 2);
   }
@@ -321,7 +322,8 @@ function drawArrow(ctx: CanvasRenderingContext2D, th: Theme, x: number, y1: numb
   ctx.fill();
 }
 
-/** Each row's ID, then its label texts, aligned per type; the last label text is the main one. */
+/** Each row's type while several show, indented once for each shown ancestor, then its ID and label texts, which
+ *  line up across rows; the last label text is the main one. */
 function drawLabels(ctx: CanvasRenderingContext2D, c: Controller, th: Theme, rows: RowView[]): void {
   const info = c.source.info;
   const size = c.rowH >= 18 ? 12 : 11;
@@ -329,7 +331,10 @@ function drawLabels(ctx: CanvasRenderingContext2D, c: Controller, th: Theme, row
   ctx.textBaseline = 'middle';
   const charW = ctx.measureText('0').width;
   const showType = info.types.length - c.hiddenTypes.size > 1;
-  const typeW = showType ? Math.max(...info.types.map((t) => t.name.length)) * charW + 12 : 0;
+  const indent = 2 * charW;
+  const depth = (ancestors: number[]) => ancestors.filter((a) => !c.hiddenTypes.has(a)).length;
+  const deepest = Math.max(0, ...info.types.map((t, i) => (c.hiddenTypes.has(i) ? 0 : depth(t.ancestorTypes))));
+  const typeW = showType ? Math.max(...info.types.map((t) => t.name.length)) * charW + deepest * indent + 12 : 0;
   const idW = Math.max(...info.types.map((t) => t.idWidth)) * charW;
   for (const r of rows) {
     const cy = c.rowY(r.index) + c.rowH / 2 + 0.5;
@@ -338,7 +343,7 @@ function drawLabels(ctx: CanvasRenderingContext2D, c: Controller, th: Theme, row
     if (showType) {
       ctx.textAlign = 'left';
       ctx.fillStyle = th.overlay1;
-      ctx.fillText(t.name, x, cy);
+      ctx.fillText(t.name, x + depth(r.ancestorTypes) * indent, cy);
       x += typeW;
     }
     ctx.textAlign = 'right';

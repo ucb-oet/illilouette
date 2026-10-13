@@ -3,12 +3,14 @@ import { describe, expect, it } from 'vitest';
 import { decodeWaterfall } from '../src/file/waterfall';
 import { MemorySource } from '../src/model/memory';
 import { effectText, fieldText, segmentAt, timeByStage } from '../src/model/present';
+import { Controller, RULER } from '../src/ui/controller';
 
 const load = (name: string) =>
-  new MemorySource(decodeWaterfall(new Uint8Array(readFileSync(new URL(`./fixtures/${name}.waterfall.pb`, import.meta.url)))));
+  new MemorySource(decodeWaterfall(new Uint8Array(readFileSync(new URL(`./fixtures/${name}.waterfall`, import.meta.url)))));
 
-// The fixtures are made from a Chipyard checkout by scripts/make_fixtures.py and are not kept in the repo.
-const haveFixtures = existsSync(new URL('./fixtures/sodor-rv32mi-p-illegal.waterfall.pb', import.meta.url));
+// The fixtures are waterfall files that Chipyard's `eventtrace waterfall` wrote, copied in; they are not kept in the
+// repo. The README says where each comes from.
+const haveFixtures = existsSync(new URL('./fixtures/rocket-rv64ui-p-add.waterfall', import.meta.url));
 
 describe.skipIf(!haveFixtures)('MemorySource on rv32mi-p-illegal', () => {
   const source = haveFixtures ? load('sodor-rv32mi-p-illegal') : (undefined as never);
@@ -80,5 +82,80 @@ describe.skipIf(!haveFixtures)('MemorySource on a window', () => {
     const [a, b] = await source.rows(0, 2);
     expect([a.id, b.id]).toEqual([3944, 3945]);
     expect(a.label).toEqual(['', '']);
+  });
+});
+
+describe.skipIf(!haveFixtures)('MemorySource on Rocket, with instructions under fetch packets', () => {
+  const source = haveFixtures ? load('rocket-rv64ui-p-add') : (undefined as never);
+  const all = async () => source.rows(0, source.info.rowCount);
+
+  it('gives each instruction its packet as its ancestor', async () => {
+    for (const r of await all()) expect(r.ancestorTypes).toEqual(r.type === 0 ? [1] : []);
+    expect(source.info.types.map((t) => t.ancestorTypes)).toEqual([[1], []]);
+  });
+
+  it('lists the rows of the types shown, in file order', async () => {
+    const rows = await all();
+    const instructions = [...(await source.visibleRows(new Set([1])))].map((i) => rows[i]);
+    expect(instructions).toHaveLength(943);
+    expect(instructions.every((r) => r.type === 0)).toBe(true);
+    // Packets come in fetch order, so their instructions do too.
+    expect(instructions.map((r) => r.id)).toEqual(instructions.map((r) => r.id).sort((a, b) => a - b));
+    expect(await source.visibleRows(new Set())).toHaveLength(2080);
+  });
+
+  it('finds a row alive at a cycle near the first one, though rows under parents start out of order', async () => {
+    const rows = await all();
+    for (let cycle = source.info.firstCycle; cycle <= source.info.lastCycle; cycle += 7) {
+      const relevant = (r: (typeof rows)[0]) => r.start > cycle || r.end === null || r.end > cycle;
+      const i = await source.rowAt(cycle);
+      expect(relevant(rows[i])).toBe(true);
+      expect(i - rows.findIndex(relevant)).toBeLessThanOrEqual(8);
+    }
+  });
+});
+
+describe.skipIf(!haveFixtures)('Controller hiding a type', () => {
+  const open = async () => {
+    const c = new Controller(load('rocket-rv64ui-p-add'));
+    c.width = 1200;
+    c.height = 800;
+    await c.home();
+    return c;
+  };
+
+  it('closes up the rows of a hidden type and opens them again', async () => {
+    const c = await open();
+    await c.toggleType(1);
+    expect(c.shownCount).toBe(943);
+    expect((await c.rowAsync(c.rowAtPlace(0))).type).toBe(0);
+    expect(c.placeOf(0)).toBe(-1);
+    expect(c.rowAtY(RULER + 1)).toBe(c.rowAtPlace(0));
+    await c.toggleType(1);
+    expect(c.shownCount).toBe(2080);
+    expect(c.placeOf(0)).toBe(0);
+  });
+
+  it('keeps the selected row in place', async () => {
+    const c = await open();
+    c.y0 = 600 * c.rowH;
+    let instruction = c.rowAtY(RULER + 10 * c.rowH + 1)!;
+    while ((await c.rowAsync(instruction)).type !== 0) instruction++;
+    c.select(instruction);
+    const y = c.rowY(instruction);
+    await c.toggleType(1);
+    expect(c.rowY(instruction)).toBe(y);
+    await c.toggleType(1);
+    expect(c.rowY(instruction)).toBe(y);
+  });
+
+  it('drops a selection whose type is hidden, and moves the selection over rows shown', async () => {
+    const c = await open();
+    c.select(0);
+    await c.toggleType(1);
+    expect(c.selected).toBeNull();
+    c.select(c.rowAtPlace(3));
+    c.moveSelection(1);
+    expect(c.selected).toBe(c.rowAtPlace(4));
   });
 });

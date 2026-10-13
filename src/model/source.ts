@@ -20,6 +20,8 @@ export interface TypeInfo {
   labelWidths: number[];
   /** The longest ID, in characters. */
   idWidth: number;
+  /** The types of the ancestors of its deepest row, its parent's first, for room to indent. */
+  ancestorTypes: number[];
 }
 
 export interface TypeSummary {
@@ -46,6 +48,10 @@ export interface RowView {
   normalEnd: boolean;
   fields: FieldView[];
   events: EventView[];
+  /** Its parent's row, if any. */
+  parent: number | null;
+  /** The types of its ancestors, its parent's first; a row is indented once for each that is not hidden. */
+  ancestorTypes: number[];
 }
 
 export interface SegmentView {
@@ -85,8 +91,10 @@ export interface Source {
   readonly info: Info;
   /** Rows first through last - 1. */
   rows(first: number, last: number): Promise<RowView[]>;
-  /** The first row alive at a cycle, or the first starting after it. */
+  /** A row alive at a cycle, or starting just after it, near the first such row. */
   rowAt(cycle: number): Promise<number>;
+  /** The rows whose types are not hidden, in order. */
+  visibleRows(hidden: ReadonlySet<number>): Promise<Uint32Array>;
   /** The row of an object, by ID and, when several types share IDs, type. */
   find(id: number, type?: number): Promise<number | null>;
   /** Events of other rows that name this one. */

@@ -35,6 +35,7 @@ export interface Row {
   normalEnd: boolean;
   fields: Field[];
   events: Event[];
+  parent: number | null;
 }
 
 export interface Segment {
@@ -116,7 +117,7 @@ function type(r: Reader): Type {
 
 function row(r: Reader): Row {
   const row: Row = {
-    type: 0, id: 0, label: [], segments: [], end: null, endedBy: 0, normalEnd: false, fields: [], events: [],
+    type: 0, id: 0, label: [], segments: [], end: null, endedBy: 0, normalEnd: false, fields: [], events: [], parent: null,
   };
   while (!r.done()) {
     const [field, wire] = r.tag();
@@ -129,6 +130,7 @@ function row(r: Reader): Row {
     else if (field === 7 && wire === Wire.Varint) row.normalEnd = r.varint() !== 0;
     else if (field === 8 && wire === Wire.Bytes) row.fields.push(fieldOf(r.message()));
     else if (field === 9 && wire === Wire.Bytes) row.events.push(event(r.message()));
+    else if (field === 10 && wire === Wire.Varint) row.parent = r.varint();
     else r.skip(wire);
   }
   return row;

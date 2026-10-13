@@ -95,13 +95,11 @@ function Viewer({ source, onOpen }: { source: MemorySource; onOpen: (f: File) =>
       else if (k === 'w' || k === 's') c.scrollRows((k === 's' ? 1 : -1) * Math.max(c.rowH, (rows * c.rowH) / 8));
       else if (k === 'a' || k === 'd') c.panTime(((k === 'd' ? 1 : -1) * c.visibleCycles) / 8);
       else if (k === 'f') void c.focusSelected();
-      else if (k >= '1' && k <= '9') c.toggleType(Number(k) - 1);
+      else if (k >= '1' && k <= '9') void c.toggleType(Number(k) - 1);
       else if (k === '0') c.toggleArrows();
       else if (k === 'Escape') c.select(null);
-      else if (k === 'ArrowDown' || k === 'ArrowUp') {
-        const i = c.selected === null ? Math.floor(c.y0 / c.rowH) : c.selected + (k === 'ArrowDown' ? 1 : -1);
-        if (i >= 0 && i < source.info.rowCount) c.select(i, true);
-      } else if (k === '/') document.getElementById('jump')?.focus();
+      else if (k === 'ArrowDown' || k === 'ArrowUp') c.moveSelection(k === 'ArrowDown' ? 1 : -1);
+      else if (k === '/') document.getElementById('jump')?.focus();
       else return;
       ev.preventDefault();
     };

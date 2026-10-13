@@ -4,27 +4,38 @@ import { Reader } from '../src/file/pb';
 import { decodeWaterfall, WaterfallError } from '../src/file/waterfall';
 
 const fixture = (name: string) => new Uint8Array(readFileSync(new URL(`./fixtures/${name}`, import.meta.url)));
-// The fixtures are made from a Chipyard checkout by scripts/make_fixtures.py and are not kept in the repo.
-const haveFixtures = existsSync(new URL('./fixtures/sodor-rv32mi-p-illegal.waterfall.pb', import.meta.url));
+// The fixtures are waterfall files that Chipyard's `eventtrace waterfall` wrote, copied in; they are not kept in the
+// repo. The README says where each comes from.
+const haveFixtures = existsSync(new URL('./fixtures/rocket-rv64ui-p-add.waterfall', import.meta.url));
 
-describe.skipIf(!haveFixtures)('decodeWaterfall on Sodor', () => {
-  // The JSON is the same file as Chipyard's `eventtrace waterfall` wrote it, read back with the protobuf package.
-  for (const name of ['sodor-rv32ui-p-add.cycle-48079-to-flush', 'sodor-rv32ui-p-add.from-0x80000000']) {
-    it(`reads ${name} as the protobuf package does`, () => {
-      const expected = JSON.parse(readFileSync(new URL(`./fixtures/${name}.expected.json`, import.meta.url), 'utf8'));
-      expect(decodeWaterfall(fixture(`${name}.waterfall.pb`))).toEqual(expected);
-    });
-  }
-
-  it('reads the full traces', () => {
-    const add = decodeWaterfall(fixture('sodor-rv32ui-p-add.waterfall.pb'));
+describe.skipIf(!haveFixtures)('decodeWaterfall on Chipyard’s files', () => {
+  it('reads Sodor’s traces', () => {
+    const add = decodeWaterfall(fixture('sodor-rv32ui-p-add.waterfall'));
     expect(add.rows).toHaveLength(4707);
-    const illegal = decodeWaterfall(fixture('sodor-rv32mi-p-illegal.waterfall.pb'));
+    const illegal = decodeWaterfall(fixture('sodor-rv32mi-p-illegal.waterfall'));
     const trap = illegal.rows.find((r) => r.id === 3470)!;
     expect(illegal.strings[trap.endedBy]).toBe('trap');
     expect(trap.normalEnd).toBe(false);
+    expect(illegal.rows.every((r) => r.parent === null)).toBe(true);
   });
 
+  it('reads Rocket’s two types, each instruction under the packet its decode names', () => {
+    const w = decodeWaterfall(fixture('rocket-rv64ui-p-add.waterfall'));
+    const t = w.strings;
+    expect(w.types.map((x) => [t[x.name], x.stages.map((s) => t[s])])).toEqual([
+      ['instruction', ['Decode', 'Execute', 'Memory', 'Writeback']],
+      ['fetch', ['S2', 'Miss', 'Queue', 'Buffer']],
+    ]);
+    expect(w.rows).toHaveLength(2080);
+    w.rows.forEach((r, i) => {
+      if (r.type === 1) return expect(r.parent).toBeNull();
+      expect(r.parent).toBeLessThan(i);
+      expect(w.rows[r.parent!].type).toBe(1);
+      const fetch = r.events[0].fields.find((f) => t[f.name] === 'fetch')!;
+      expect(fetch.row).toBe(r.parent);
+      expect(t[fetch.text]).toBe(`fetch#${w.rows[r.parent!].id}`);
+    });
+  });
 });
 
 describe('decodeWaterfall', () => {
@@ -36,7 +47,7 @@ describe('decodeWaterfall', () => {
   });
 
   it.skipIf(!haveFixtures)('rejects a file cut short', () => {
-    const bytes = fixture('sodor-rv32ui-p-add.cycle-48079-to-flush.waterfall.pb');
+    const bytes = fixture('sodor-rv32ui-p-add.cycle-48079-to-flush.waterfall');
     expect(() => decodeWaterfall(bytes.subarray(0, bytes.length - 3))).toThrow(WaterfallError);
   });
 });

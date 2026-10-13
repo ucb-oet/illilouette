@@ -6,12 +6,16 @@ export class MemorySource implements Source {
   readonly info: Info;
   private readonly views: (RowView | undefined)[];
   private readonly starts: number[];
+  /** The earliest start from each row on, which rises even though rows under their parents do not start in order. */
+  private readonly laterStart: Float64Array;
   private readonly byId = new Map<string, number>();
   private referrersOf: Map<number, Referrer[]> | null = null;
 
   constructor(private readonly w: Waterfall) {
     this.views = new Array(w.rows.length);
     this.starts = w.rows.map((r) => (r.segments.length ? r.segments[0].from : r.events.length ? r.events[0].cycle : w.firstCycle));
+    this.laterStart = new Float64Array(this.starts.length);
+    for (let i = this.starts.length - 1, min = Infinity; i >= 0; i--) this.laterStart[i] = min = Math.min(min, this.starts[i]);
     w.rows.forEach((r, i) => this.byId.set(`${r.type}#${r.id}`, i));
     const t = w.strings;
     this.info = {
@@ -22,12 +26,17 @@ export class MemorySource implements Source {
       types: w.types.map((type, ti) => {
         const labelWidths: number[] = [];
         let idWidth = 1;
+        let ancestors: number[] = [];
         for (const r of w.rows) {
           if (r.type !== ti) continue;
           r.label.forEach((s, k) => (labelWidths[k] = Math.max(labelWidths[k] ?? 0, t[s].length)));
           idWidth = Math.max(idWidth, String(r.id).length);
+          if (r.parent !== null) {
+            const a = ancestorTypes(w, r);
+            if (a.length > ancestors.length) ancestors = a;
+          }
         }
-        return { name: t[type.name], stages: type.stages.map((s) => t[s]), labelWidths, idWidth };
+        return { name: t[type.name], stages: type.stages.map((s) => t[s]), labelWidths, idWidth, ancestorTypes: ancestors };
       }),
       summary: w.types.map((type, ti) => summarize(t[type.name], ti, w)),
     };
@@ -40,12 +49,13 @@ export class MemorySource implements Source {
   }
 
   async rowAt(cycle: number): Promise<number> {
-    // Rows are in creation order, so starts rise; step back over earlier rows still alive at the cycle.
+    // Find the first row after which every row starts at or after the cycle, then step back over earlier rows still
+    // alive at the cycle.
     let lo = 0;
     let hi = this.starts.length;
     while (lo < hi) {
       const mid = (lo + hi) >> 1;
-      if (this.starts[mid] < cycle) lo = mid + 1;
+      if (this.laterStart[mid] < cycle) lo = mid + 1;
       else hi = mid;
     }
     let i = Math.min(lo, this.starts.length - 1);
@@ -56,6 +66,14 @@ export class MemorySource implements Source {
       else break;
     }
     return Math.max(0, i);
+  }
+
+  async visibleRows(hidden: ReadonlySet<number>): Promise<Uint32Array> {
+    const rows = this.w.rows;
+    const out = new Uint32Array(rows.length);
+    let n = 0;
+    for (let i = 0; i < rows.length; i++) if (!hidden.has(rows[i].type)) out[n++] = i;
+    return out.slice(0, n);
   }
 
   async find(id: number, type?: number): Promise<number | null> {
@@ -110,6 +128,8 @@ export class MemorySource implements Source {
       endedBy: r.end === null ? null : t[r.endedBy],
       normalEnd: r.normalEnd,
       fields: r.fields.map(fieldView),
+      parent: r.parent,
+      ancestorTypes: ancestorTypes(w, r),
       events: r.events.map((e) => {
         const site = w.sites[e.site];
         return { cycle: e.cycle, name: t[site.event], source: t[site.source], instance: t[site.instance], effect: e.effect, fields: e.fields.map(fieldView) };
@@ -118,6 +138,13 @@ export class MemorySource implements Source {
     this.views[i] = view;
     return view;
   }
+}
+
+function ancestorTypes(w: Waterfall, r: Row): number[] {
+  const types: number[] = [];
+  // Parents come before their children, so a well-formed file cannot loop; the bound guards a malformed one.
+  for (let p = r.parent; p !== null && p < w.rows.length && types.length < 64; p = w.rows[p].parent) types.push(w.rows[p].type);
+  return types;
 }
 
 function summarize(name: string, type: number, w: Waterfall): TypeSummary {
