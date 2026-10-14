@@ -96,6 +96,18 @@ describe.skipIf(!haveFixtures)('MemorySource on Rocket, with instructions under 
     expect(source.info.types.map((t) => t.ancestorTypes)).toEqual([[1], []]);
   });
 
+  it('describes a create event in the cycle its row starts, then the edge after it', async () => {
+    const [instruction, fetch] = source.info.types.map((t) => t.stages);
+    const first = async (id: number, type: number) => {
+      const [r] = await source.rows((await source.find(id, type))!, (await source.find(id, type))! + 1);
+      return effectText(r, r.events[0], type === 0 ? instruction : fetch);
+    };
+    // Stalled at decode, so it stays in Decode; issues at once; a packet.
+    expect(await first(4, 0)).toBe('created in Decode at 412');
+    expect(await first(60, 0)).toBe('created in Decode at 1,511 · enters Execute at 1,512');
+    expect(await first(97, 1)).toMatch(/^created in S1 at [\d,]+ · enters S2 at [\d,]+$/);
+  });
+
   it('lists the rows of the types shown, in file order', async () => {
     const rows = await all();
     const instructions = [...(await source.visibleRows(new Set([1])))].map((i) => rows[i]);

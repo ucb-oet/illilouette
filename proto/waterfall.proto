@@ -58,7 +58,9 @@ message Row {
   uint32 ended_by = 6;
   // Whether that event is its type's normal end. False for an object that left without, for example, retiring.
   bool normal_end = 7;
-  // The fields its create event set, other than its stage.
+  // The object's const fields, as its create event set them, such as an instruction's pc and bits. Fields of the
+  // create event itself, such as a stall's cause, are on that event. Files from a manifest that does not list the
+  // object's fields hold every field the create event set, other than its stage.
   repeated Field fields = 8;
   repeated Event events = 9;
   // The row index of its parent, as the view names it, such as an instruction's fetch packet. Absent for a root,

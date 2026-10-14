@@ -12,9 +12,18 @@ export function segmentAt(row: RowView, cycle: number): SegmentView | null {
   return null;
 }
 
-/** What an event did, on the waterfall's clock: "enters Decode at 41,403", "while in Decode", "leaves Memory after 41,466". */
+/** What an event did, on the waterfall's clock: "enters Decode at 41,403", "while in Decode", "leaves Memory after 41,466".
+ *  A row that starts in the cycle of the event that creates it is in its first stage during that cycle, and the
+ *  event's own effect lands at the edge after it: "created in Decode at 629 · enters Execute at 630". */
 export function effectText(row: RowView, e: EventView, stages: string[]): string {
   const at = segmentAt(row, e.cycle);
+  const first = row.segments[0];
+  if (e === row.events[0] && first?.from === e.cycle) {
+    const created = `created in ${stages[first.stage]} at ${fmt(e.cycle)}`;
+    if (e.effect.kind === 'enters' && e.effect.stage !== first.stage) return `${created} · enters ${stages[e.effect.stage]} at ${fmt(e.cycle + 1)}`;
+    if (e.effect.kind === 'ends') return `${created} · leaves ${stages[first.stage]} after ${fmt(e.cycle)}`;
+    return created;
+  }
   switch (e.effect.kind) {
     case 'enters':
       return `enters ${stages[e.effect.stage]} at ${fmt(e.cycle + 1)}`;

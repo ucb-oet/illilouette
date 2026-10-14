@@ -24,10 +24,13 @@ describe.skipIf(!haveFixtures)('decodeWaterfall on Chipyard’s files', () => {
     const t = w.strings;
     expect(w.types.map((x) => [t[x.name], x.stages.map((s) => t[s])])).toEqual([
       ['instruction', ['Decode', 'Execute', 'Memory', 'Writeback']],
-      ['fetch', ['S2', 'Miss', 'Queue', 'Buffer']],
+      ['fetch', ['S1', 'S2', 'Miss', 'Queue', 'Buffer']],
     ]);
     expect(w.rows).toHaveLength(2080);
     w.rows.forEach((r, i) => {
+      // Each object is drawn from the cycle of the event that creates it, in Decode or S1.
+      expect(r.segments[0].from).toBe(r.events[0].cycle);
+      expect(t[w.types[r.type].stages[r.segments[0].stage]]).toBe(r.type === 0 ? 'Decode' : 'S1');
       if (r.type === 1) return expect(r.parent).toBeNull();
       expect(r.parent).toBeLessThan(i);
       expect(w.rows[r.parent!].type).toBe(1);
