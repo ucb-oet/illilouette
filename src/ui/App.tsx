@@ -87,6 +87,7 @@ function Landing({ onOpen }: { onOpen: (f: File) => Promise<void> }) {
 
 function Viewer({ source, onOpen }: { source: MemorySource; onOpen: (f: File) => Promise<void> }) {
   const c = useMemo(() => new Controller(source), [source]);
+  const [dropping, setDropping] = useState(false);
 
   useEffect(() => {
     // Open at the file's start, once the canvas has its size.
@@ -124,7 +125,44 @@ function Viewer({ source, onOpen }: { source: MemorySource; onOpen: (f: File) =>
     window.addEventListener('pointerdown', clearNotice, true);
     window.addEventListener('wheel', clearNotice, { capture: true, passive: true });
     window.addEventListener('keydown', onKey);
+
+    // A file dropped anywhere on the page opens in place of this one, as Open… does. Entering and leaving each element
+    // on the way are counted, so that the outline stays while the file is over the page.
+    const hasFiles = (ev: DragEvent) => Array.from(ev.dataTransfer?.types ?? []).includes('Files');
+    let over = 0;
+    const onDragEnter = (ev: DragEvent) => {
+      if (!hasFiles(ev)) return;
+      ev.preventDefault();
+      over++;
+      setDropping(true);
+    };
+    const onDragOver = (ev: DragEvent) => {
+      if (!hasFiles(ev)) return;
+      ev.preventDefault();
+      ev.dataTransfer!.dropEffect = 'copy';
+    };
+    const onDragLeave = (ev: DragEvent) => {
+      if (!hasFiles(ev)) return;
+      over = Math.max(0, over - 1);
+      if (!over) setDropping(false);
+    };
+    const onDrop = (ev: DragEvent) => {
+      if (!hasFiles(ev)) return;
+      ev.preventDefault();
+      over = 0;
+      setDropping(false);
+      const f = ev.dataTransfer?.files[0];
+      if (f) onOpen(f).catch((err: Error) => c.say(err.message));
+    };
+    window.addEventListener('dragenter', onDragEnter);
+    window.addEventListener('dragover', onDragOver);
+    window.addEventListener('dragleave', onDragLeave);
+    window.addEventListener('drop', onDrop);
     return () => {
+      window.removeEventListener('dragenter', onDragEnter);
+      window.removeEventListener('dragover', onDragOver);
+      window.removeEventListener('dragleave', onDragLeave);
+      window.removeEventListener('drop', onDrop);
       window.removeEventListener('keydown', clearNotice, true);
       window.removeEventListener('pointerdown', clearNotice, true);
       window.removeEventListener('wheel', clearNotice, true);
@@ -141,6 +179,9 @@ function Viewer({ source, onOpen }: { source: MemorySource; onOpen: (f: File) =>
         <DetailPanel c={c} />
       </div>
       <Status c={c} />
+      <div class="dropping" hidden={!dropping}>
+        <p>Drop to open in place of {source.info.title}</p>
+      </div>
     </div>
   );
 }
@@ -148,15 +189,18 @@ function Viewer({ source, onOpen }: { source: MemorySource; onOpen: (f: File) =>
 function Status({ c }: { c: Controller }) {
   useController(c);
   const h = c.hover;
+  const r = h?.row == null ? undefined : c.row(h.row);
+  const t = r && c.source.info.types[r.type];
   let readout = '';
   if (h?.cycle != null) {
     readout = `cycle ${fmt(h.cycle)}`;
-    const r = h.row === null ? undefined : c.row(h.row);
-    if (r) {
-      const t = c.source.info.types[r.type];
+    if (r && t) {
       const s = segmentAt(r, h.cycle);
       readout += ` · ${objectName(t.name, r.id)}${s ? ` · ${t.stages[s.stage]}${h.cycle < s.from + s.held ? ' · held' : ''}` : ''}`;
     }
+  } else if (r && t) {
+    // Over the label column.
+    readout = objectName(t.name, r.id);
   }
   const zoom = `${c.cellW >= 10 ? c.cellW.toFixed(0) : c.cellW.toFixed(2)} px/cycle · ${c.rowH.toFixed(0)} px rows · ${DETAIL_NAMES[detailOf(c)]}`;
   return (

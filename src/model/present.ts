@@ -45,6 +45,14 @@ export function fieldText(f: FieldView, other?: RowView, cycle?: number, stages?
   return `${f.name} ${f.text}`;
 }
 
+/** How an object's life went: "Ended by retire · 4 cycles · 1,511–1,514", or "Live when the trace ends · …". */
+export function outcomeText(row: RowView, lastCycle: number): string {
+  const end = row.end ?? lastCycle + 1;
+  const cycles = end - row.start;
+  const how = row.end === null ? 'Live when the trace ends' : `Ended by ${row.endedBy}`;
+  return `${how} · ${fmt(cycles)} cycle${cycles === 1 ? '' : 's'} · ${fmt(row.start)}–${fmt(end - 1)}`;
+}
+
 /** Cycles spent in each stage, in the order the stages were first entered. */
 export function timeByStage(row: RowView): { stage: number; cycles: number; held: number }[] {
   const out: { stage: number; cycles: number; held: number }[] = [];

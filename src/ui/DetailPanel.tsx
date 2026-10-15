@@ -1,7 +1,7 @@
 // The detail panel: the selected object, or with nothing selected, a summary of the file.
 import { Fragment } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
-import { effectText, fieldText, fmt, objectName, shortName, timeByStage } from '../model/present';
+import { effectText, fieldText, fmt, objectName, outcomeText, shortName, timeByStage } from '../model/present';
 import type { Referrer, RowView } from '../model/source';
 import { Controller, useController } from './controller';
 
@@ -96,8 +96,6 @@ function Selection({ c, s }: { c: Controller; s: Selected }) {
   const { row, others, referrers } = s;
   const type = c.source.info.types[row.type];
   const stagesOf = (r: RowView) => c.source.info.types[r.type].stages;
-  const end = row.end ?? c.source.info.lastCycle + 1;
-  const cycles = end - row.start;
   const label = row.label.filter(Boolean);
   const go = (i: number) => {
     c.select(i);
@@ -128,10 +126,7 @@ function Selection({ c, s }: { c: Controller; s: Selected }) {
       </div>
       <div class="outcome">
         {row.end !== null && !row.normalEnd && <span class="cap" />}
-        <span>
-          {row.end === null ? 'Live when the trace ends' : `Ended by ${row.endedBy}`} · {fmt(cycles)} cycle{cycles === 1 ? '' : 's'} ·{' '}
-          {fmt(row.start)}–{fmt(end - 1)}
-        </span>
+        <span>{outcomeText(row, c.source.info.lastCycle)}</span>
       </div>
       {row.segments.length > 0 && (
         <section>

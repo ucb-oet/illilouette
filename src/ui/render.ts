@@ -87,6 +87,15 @@ export function drawWaterfall(ctx: CanvasRenderingContext2D, c: Controller, th: 
   const cStart = Math.floor(c.x0);
   const cEnd = Math.ceil(c.x0 + c.visibleCycles);
   const step = niceStep(72 / cw);
+  // A row's tint, the same across the label column and the timeline: selected, related to the selection, or hovered.
+  // The selection's is a little stronger on the label column's darker ground.
+  const relatedRows = new Set(c.related.flatMap((a) => [a.from, a.to]));
+  const bandOf = (r: RowView, gutter: boolean): string | null => {
+    if (r.index === c.selected) return rgba(th.accent, gutter ? (th.dark ? 0.2 : 0.16) : th.dark ? 0.16 : 0.14);
+    if (relatedRows.has(r.index)) return rgba(th.accent, th.dark ? 0.07 : 0.06);
+    if (c.hover?.row === r.index) return rgba(th.overlay0, 0.1);
+    return null;
+  };
 
   // ---- timeline area
   ctx.save();
@@ -107,16 +116,11 @@ export function drawWaterfall(ctx: CanvasRenderingContext2D, c: Controller, th: 
       for (const r of rows) for (const e of r.events) for (const f of e.fields) if (f.row !== null) arrows.push({ from: f.row, to: r.index, cycle: e.cycle });
     }
   }
-  const relatedRows = new Set(c.related.flatMap((a) => [a.from, a.to]));
   for (const r of rows) {
-    const y = c.rowY(r.index);
-    let band: string | null = null;
-    if (r.index === c.selected) band = rgba(th.accent, th.dark ? 0.16 : 0.14);
-    else if (relatedRows.has(r.index)) band = rgba(th.accent, th.dark ? 0.07 : 0.06);
-    else if (c.hover?.row === r.index) band = rgba(th.overlay0, 0.1);
+    const band = bandOf(r, false);
     if (band) {
       ctx.fillStyle = band;
-      ctx.fillRect(gx, y, W - gx, rowH);
+      ctx.fillRect(gx, c.rowY(r.index), W - gx, rowH);
     }
   }
   for (const r of rows) {
@@ -143,8 +147,9 @@ export function drawWaterfall(ctx: CanvasRenderingContext2D, c: Controller, th: 
     ctx.rect(0, RULER, gx - 1, H - RULER);
     ctx.clip();
     for (const r of rows) {
-      if (r.index === c.selected) {
-        ctx.fillStyle = rgba(th.accent, th.dark ? 0.2 : 0.16);
+      const band = bandOf(r, true);
+      if (band) {
+        ctx.fillStyle = band;
         ctx.fillRect(0, c.rowY(r.index), gx, rowH);
       }
     }

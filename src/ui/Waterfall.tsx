@@ -1,6 +1,6 @@
 // The waterfall canvas: sizing, pointer and wheel input, the label column's splitter, and the hover tooltip.
 import { useEffect, useRef } from 'preact/hooks';
-import { effectText, fieldText, fmt, objectName, segmentAt, shortName } from '../model/present';
+import { effectText, fieldText, fmt, objectName, outcomeText, segmentAt, shortName } from '../model/present';
 import type { RowView } from '../model/source';
 import { Controller } from './controller';
 import { drawWaterfall } from './render';
@@ -158,11 +158,12 @@ export function Waterfall({ c }: { c: Controller }) {
   );
 }
 
-/** Fills and places the tooltip for the hovered cell. Texts go in through textContent: they come from the file. */
+/** Fills and places the tooltip for the hovered cell, or, over the label column, for the hovered row. Texts go in
+ *  through textContent: they come from the file. */
 function showTip(c: Controller, tip: HTMLDivElement, rowIndex: number | null, cycle: number | null, x: number, y: number): void {
   const r: RowView | undefined = rowIndex === null ? undefined : c.row(rowIndex);
   const end = r ? (r.end ?? c.source.info.lastCycle + 1) : 0;
-  if (!r || cycle === null || c.hiddenTypes.has(r.type) || cycle < r.start || cycle > end) {
+  if (!r || c.hiddenTypes.has(r.type) || (cycle !== null && (cycle < r.start || cycle > end))) {
     tip.hidden = true;
     return;
   }
@@ -174,6 +175,15 @@ function showTip(c: Controller, tip: HTMLDivElement, rowIndex: number | null, cy
     return d;
   };
   tip.replaceChildren();
+  const label = r.label.filter(Boolean).join('  ');
+  if (cycle === null) {
+    // Over the label column: the object, its whole label, which the column may cut or leave out, and how it went.
+    tip.append(div('main', objectName(type.name, r.id)));
+    if (label) tip.append(div('label', label));
+    tip.append(div('note', outcomeText(r, c.source.info.lastCycle)));
+    place(c, tip, x, y);
+    return;
+  }
   const s = segmentAt(r, cycle);
   const main = document.createElement('div');
   main.className = 'main';
@@ -186,7 +196,6 @@ function showTip(c: Controller, tip: HTMLDivElement, rowIndex: number | null, cy
     main.textContent = r.end !== null && cycle >= r.end ? `Ended by ${r.endedBy}` : 'In no stage';
   }
   tip.append(main, div('sub', `cycle ${fmt(cycle)} · ${objectName(type.name, r.id)}`));
-  const label = r.label.filter(Boolean).join('  ');
   if (label) tip.append(div('label', label));
   if (s) {
     const entered = r.events.find((e) => e.effect.kind === 'enters' && e.cycle === s.from - 1);
@@ -199,6 +208,11 @@ function showTip(c: Controller, tip: HTMLDivElement, rowIndex: number | null, cy
       .join(' · ');
     tip.append(div('event', `${shortName(e.name, type.name)}: ${effectText(r, e, type.stages)}${fields ? ' · ' + fields : ''}`));
   }
+  place(c, tip, x, y);
+}
+
+/** Shows the tooltip below and right of the pointer, or on whichever side keeps it inside the waterfall. */
+function place(c: Controller, tip: HTMLDivElement, x: number, y: number): void {
   tip.hidden = false;
   const tw = tip.offsetWidth;
   const th = tip.offsetHeight;
