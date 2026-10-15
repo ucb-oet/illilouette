@@ -44,11 +44,12 @@ Letters are as typed: a capital takes Shift.
 | `w` `a` `s` `d` | Move up, left, down, right |
 | Hover a label | The object, its whole label, and how it ended |
 | Click | Select an object and the cycle; its arrows and details appear |
-| `f` | Focus: bring the selection into view, its first event a third of the way in |
+| `f` | Bring the selection into view, its first event a third of the way in |
 | `↑` `↓` or `k` `j` | Move the selection a row, keeping its cycle, and scrolling rows only |
 | `←` `→` or `h` `l` | Move the selected cycle; from the selected object's first event when none is selected |
 | `Esc` | Clear the selection and the selected cycle |
 | `1`–`9` | Show or hide an object type; its rows close up |
+| `t` / `T` | Focus the next or previous shown type; a file opens with its first type in focus |
 | `0` / `$` | Select the selection's first or last event's cycle, and pan to it, as vim's start and end of line |
 | `i` | Put a cursor on the edge where the selected cycle starts, as vim's `i` inserts before the cursor, and name it: type a name, or keep its cycle, then Enter or `Esc`. The ruler shows each cursor, and between neighbors the gap, such as `Δ 4` |
 | `I` / `A` | Put a cursor at the selected object's start, or after its end, as vim's `I` and `A` insert at the start and end of the line; selects its first or last event's cycle, as `0` and `$` do |
@@ -59,7 +60,7 @@ Letters are as typed: a capital takes Shift.
 
 Rows come in the file's order. An object with a parent sits under it, such as a Rocket instruction under the fetch packet it decoded from, its type name indented; hiding the parent's type takes the indent away.
 
-How much a row shows follows the zoom: lettered cells up close, one run per stage in the middle, solid rows far out. Hatched cycles are cycles in which an object was held in its stage. A dot marks an event that describes an object without moving or ending it, such as a stall. A red cap marks an object that left without its type's normal end, such as a squashed instruction.
+How much a row shows follows the zoom: lettered cells up close, one run per stage in the middle, solid rows far out. One object type is in focus and drawn in full; every other type keeps only the bar along the bottom of its cells, so that packets and instructions, say, tell apart. Hatched cycles, or a dashed bar in a type not in focus, are cycles in which an object was held in its stage. A dot marks an event that describes an object without moving or ending it, such as a stall. A red cap marks an object that left without its type's normal end, such as a squashed instruction.
 
 ## Layout
 

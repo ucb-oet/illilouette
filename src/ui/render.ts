@@ -140,13 +140,11 @@ export function drawWaterfall(ctx: CanvasRenderingContext2D, c: Controller, th: 
     const xc = c.xOf(a.cycle) + Math.min(cw, 24) / 2;
     drawArrow(ctx, th, xc, c.rowY(a.from) + rowH / 2, c.rowY(a.to) + rowH / 2);
   }
-  // The selected cell, where the selected row and column cross, outlined as vim's block cursor.
+  // The selected cell, where the selected row and column cross: lavender corners just outside it, which no cell
+  // border looks like.
   if (c.selected !== null && c.column !== null && c.placeOf(c.selected) >= 0) {
     const w = Math.max(4, cw);
-    rr(ctx, c.xOf(c.column) + (cw - w) / 2, c.rowY(c.selected) + 0.5, w, rowH - 1, cw >= 10 ? 4 : 1);
-    ctx.strokeStyle = th.accent;
-    ctx.lineWidth = 2;
-    ctx.stroke();
+    drawBrackets(ctx, th, c.xOf(c.column) + (cw - w) / 2, c.rowY(c.selected), w, rowH);
   }
   // Cursors: lines on the clock edges they mark, in the gaps between cells.
   ctx.fillStyle = rgba(th.text, 0.8);
@@ -317,7 +315,24 @@ function drawMarks(ctx: CanvasRenderingContext2D, c: Controller, th: Theme, r: R
   if (muted(r)) drawCap(ctx, th, c.xOf(r.end!) - gap / 2, y + pad, c.rowH - 2 * pad);
 }
 
-/** One cell per cycle; held cycles hatched; letters when there is room. */
+/** Dashes of a held stretch of bar, and the gaps between them, in pixels. */
+const DASH = 3;
+const DASH_GAP = 2;
+
+/** The bar's height in a cell this tall: as the focused type's bar, or a third of a short cell. */
+function barHeight(h: number): number {
+  return h >= 8 ? 2 : Math.max(1, Math.round(h / 3));
+}
+
+/** The bar an unfocused type keeps along the bottom of its cells, from x1 to x2: dashed up to hx, where the object is
+ *  held, and whole after it, where it moves on. Hatching marks held cycles in the focused type only. */
+function drawBar(ctx: CanvasRenderingContext2D, color: string, x1: number, x2: number, hx: number, bottom: number, h: number): void {
+  ctx.fillStyle = color;
+  for (let x = x1; x < hx; x += DASH + DASH_GAP) ctx.fillRect(x, bottom - h, Math.min(DASH, hx - x), h);
+  if (x2 > hx) ctx.fillRect(hx, bottom - h, x2 - hx, h);
+}
+
+/** One cell per cycle; held cycles hatched; letters when there is room. An unfocused type keeps only its bars. */
 function drawCells(ctx: CanvasRenderingContext2D, c: Controller, th: Theme, r: RowView, y: number, letters: boolean): void {
   const cw = c.cellW;
   const pad = padOf(c.rowH);
@@ -330,20 +345,26 @@ function drawCells(ctx: CanvasRenderingContext2D, c: Controller, th: Theme, r: R
   ctx.font = MONO(11, 600);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
+  const focused = r.type === c.focusType;
   for (const s of r.segments) {
     const color = th.stages[s.stage % th.stages.length];
     for (let k = Math.max(s.from, cMin); k < Math.min(s.to, cMax); k++) {
       const x = c.xOf(k);
       const held = k < s.from + s.held;
-      rr(ctx, x + gap / 2, y + pad, cw - gap, h, cw >= 10 ? 3 : 1);
-      ctx.fillStyle = held ? th.hatch[s.stage % th.hatch.length] : rgba(color, th.wash);
-      ctx.fill();
-      if (!held && h >= 8) {
-        ctx.fillStyle = color;
-        ctx.fillRect(x + gap / 2, y + pad + h - 2, cw - gap, 2);
+      if (focused) {
+        rr(ctx, x + gap / 2, y + pad, cw - gap, h, cw >= 10 ? 3 : 1);
+        ctx.fillStyle = held ? th.hatch[s.stage % th.hatch.length] : rgba(color, th.wash);
+        ctx.fill();
+        if (!held && h >= 8) {
+          ctx.fillStyle = color;
+          ctx.fillRect(x + gap / 2, y + pad + h - 2, cw - gap, 2);
+        }
+      } else {
+        const left = x + gap / 2;
+        drawBar(ctx, color, left, x + cw - gap / 2, held ? x + cw - gap / 2 : left, y + pad + h, barHeight(h));
       }
       if (letters) {
-        ctx.fillStyle = held ? th.subtext0 : th.text;
+        ctx.fillStyle = held ? th.subtext0 : focused ? th.text : th.subtext1;
         ctx.fillText(stages[s.stage]?.[0] ?? '?', x + cw / 2, y + c.rowH / 2 - 0.5);
       }
     }
@@ -352,18 +373,23 @@ function drawCells(ctx: CanvasRenderingContext2D, c: Controller, th: Theme, r: R
   drawMarks(ctx, c, th, r, y, gap);
 }
 
-/** Each stage's cycles merged into one run, held part hatched. */
+/** Each stage's cycles merged into one run, held part hatched. An unfocused type keeps only its bars. */
 function drawRuns(ctx: CanvasRenderingContext2D, c: Controller, th: Theme, r: RowView, y: number): void {
   const pad = padOf(c.rowH);
   const h = c.rowH - 2 * pad;
   const gap = c.cellW >= 5 ? 2 : 1;
   ctx.globalAlpha = muted(r) ? 0.5 : 1;
+  const focused = r.type === c.focusType;
   for (const s of r.segments) {
     const color = th.stages[s.stage % th.stages.length];
     const x1 = c.xOf(s.from) + gap / 2;
     const x2 = c.xOf(s.to) - gap / 2;
     if (x2 < c.gutterW || x1 > c.width) continue;
     const hx = Math.max(x1, Math.min(x2, c.xOf(s.from + s.held)));
+    if (!focused) {
+      drawBar(ctx, color, x1, x2, hx, y + pad + h, barHeight(h));
+      continue;
+    }
     ctx.save();
     rr(ctx, x1, y + pad, x2 - x1, h, Math.min(3, c.cellW / 3));
     ctx.clip();
@@ -388,18 +414,23 @@ function drawRuns(ctx: CanvasRenderingContext2D, c: Controller, th: Theme, r: Ro
   drawMarks(ctx, c, th, r, y, gap);
 }
 
-/** Solid runs; events and caps become thin ticks. */
+/** Solid runs; events and caps become thin ticks. An unfocused type keeps only its bars. */
 function drawSolid(ctx: CanvasRenderingContext2D, c: Controller, th: Theme, r: RowView, y: number): void {
   const inset = c.rowH >= 3 ? 1 : 0;
   const top = y + inset;
   const h = Math.max(1, c.rowH - inset);
   ctx.globalAlpha = muted(r) ? 0.4 : 1;
+  const focused = r.type === c.focusType;
   for (const s of r.segments) {
     const color = th.stages[s.stage % th.stages.length];
     const x1 = c.xOf(s.from);
     const x2 = c.xOf(s.to);
     if (x2 < c.gutterW || x1 > c.width) continue;
     const hx = Math.max(x1, Math.min(x2, c.xOf(s.from + s.held)));
+    if (!focused) {
+      drawBar(ctx, color, x1, Math.max(x1 + 1, x2), hx, top + h, barHeight(h));
+      continue;
+    }
     if (hx > x1) {
       ctx.fillStyle = rgba(color, 0.4);
       ctx.fillRect(x1, top, hx - x1, h);
@@ -417,6 +448,32 @@ function drawSolid(ctx: CanvasRenderingContext2D, c: Controller, th: Theme, r: R
     ctx.fillStyle = th.killed;
     ctx.fillRect(c.xOf(r.end!), top, Math.max(2, c.cellW * 0.6), h);
   }
+}
+
+/** Four corners around a cell, a little outside it. */
+function drawBrackets(ctx: CanvasRenderingContext2D, th: Theme, x: number, y: number, w: number, h: number): void {
+  const x1 = x - 1.5;
+  const x2 = x + w + 1.5;
+  const y1 = y - 1;
+  const y2 = y + h + 1;
+  const l = Math.max(2, Math.min(5, w / 2, h / 2));
+  ctx.beginPath();
+  ctx.moveTo(x1, y1 + l);
+  ctx.lineTo(x1, y1);
+  ctx.lineTo(x1 + l, y1);
+  ctx.moveTo(x2 - l, y1);
+  ctx.lineTo(x2, y1);
+  ctx.lineTo(x2, y1 + l);
+  ctx.moveTo(x2, y2 - l);
+  ctx.lineTo(x2, y2);
+  ctx.lineTo(x2 - l, y2);
+  ctx.moveTo(x1 + l, y2);
+  ctx.lineTo(x1, y2);
+  ctx.lineTo(x1, y2 - l);
+  ctx.strokeStyle = th.accent;
+  ctx.lineWidth = 2;
+  ctx.lineCap = 'round';
+  ctx.stroke();
 }
 
 function drawArrow(ctx: CanvasRenderingContext2D, th: Theme, x: number, y1: number, y2: number): void {

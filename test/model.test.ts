@@ -294,6 +294,31 @@ describe.skipIf(!haveFixtures)('Cursors', () => {
   });
 });
 
+describe.skipIf(!haveFixtures)('The type in focus', () => {
+  it('starts at the first type, cycles over shown types, and moves on when its type is hidden', async () => {
+    const c = new Controller(load('rocket-rv64ui-p-add'));
+    c.setSize(1200, 800);
+    await c.home();
+    expect(c.focusType).toBe(FETCH);
+    c.cycleFocus(1);
+    expect(c.focusType).toBe(INSTRUCTION);
+    c.cycleFocus(1);
+    expect(c.focusType).toBe(FETCH);
+    c.cycleFocus(-1);
+    expect(c.focusType).toBe(INSTRUCTION);
+    await c.toggleType(INSTRUCTION);
+    expect(c.focusType).toBe(FETCH);
+    // With one type shown, there is nowhere else to go.
+    c.cycleFocus(1);
+    expect(c.focusType).toBe(FETCH);
+    // With none shown, the focus stays, and goes to the first type shown again.
+    await c.toggleType(FETCH);
+    expect(c.focusType).toBe(FETCH);
+    await c.toggleType(INSTRUCTION);
+    expect(c.focusType).toBe(INSTRUCTION);
+  });
+});
+
 describe.skipIf(!haveFixtures)('The hovered cycle', () => {
   it('follows the view when a key pans it', async () => {
     const c = new Controller(load('rocket-rv64ui-p-add'));

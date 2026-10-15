@@ -44,6 +44,8 @@ export class Controller {
   /** The selected cycle, as vim's cursor column is to its current line. */
   column: number | null = null;
   hiddenTypes = new Set<number>();
+  /** The type drawn in full; every other type keeps only its bars. A file opens with its first type in focus. */
+  focusType = 0;
   /** Arrows for the selected row: from each object it names to it, and from it to each row that names it. */
   related: { from: number; to: number; cycle: number }[] = [];
   allArrows = false;
@@ -379,6 +381,8 @@ export class Controller {
     const offset = selOnScreen || top >= 0 ? this.rowY(anchor) - RULER : 0;
     if (this.hiddenTypes.has(t)) this.hiddenTypes.delete(t);
     else this.hiddenTypes.add(t);
+    // The focus stays on a shown type while any is shown.
+    if (this.hiddenTypes.has(this.focusType)) this.focusType = this.nextShownType(this.focusType, 1) ?? this.focusType;
     const toggle = ++this.toggles;
     const shown = this.hiddenTypes.size ? await this.source.visibleRows(this.hiddenTypes) : null;
     if (toggle !== this.toggles) return;
@@ -448,6 +452,24 @@ export class Controller {
 
   toggleHelp(): void {
     this.helpOpen = !this.helpOpen;
+    this.changed();
+  }
+
+  /** The next shown type after one, in the view's order, wrapping; null when no type is shown. */
+  private nextShownType(from: number, step: 1 | -1): number | null {
+    const n = this.source.info.types.length;
+    for (let k = 1; k <= n; k++) {
+      const t = (((from + step * k) % n) + n) % n;
+      if (!this.hiddenTypes.has(t)) return t;
+    }
+    return null;
+  }
+
+  /** Moves the focus to the next or previous shown type, in the view's order. */
+  cycleFocus(step: 1 | -1): void {
+    const next = this.nextShownType(this.focusType, step);
+    if (next === null || next === this.focusType) return;
+    this.focusType = next;
     this.changed();
   }
 

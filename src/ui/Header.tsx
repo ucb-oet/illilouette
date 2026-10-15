@@ -57,7 +57,14 @@ export function Header({ c, onOpen }: { c: Controller; onOpen: (file: File) => P
       </form>
       <div class="chips" role="group" aria-label="Show or hide">
         {info.types.slice(0, 9).map((t, i) => (
-          <button type="button" class="chip" key={t.name} aria-pressed={!c.hiddenTypes.has(i)} onClick={() => void c.toggleType(i)}>
+          <button
+            type="button"
+            class={i === c.focusType ? 'chip focused' : 'chip'}
+            key={t.name}
+            aria-pressed={!c.hiddenTypes.has(i)}
+            title={i === c.focusType ? `${t.name} is in focus; t moves the focus` : undefined}
+            onClick={() => void c.toggleType(i)}
+          >
             <kbd>{i + 1}</kbd>
             <span class="swatches">
               {t.stages.map((s, k) => (

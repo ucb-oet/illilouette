@@ -118,6 +118,7 @@ function Viewer({ source, onOpen }: { source: MemorySource; onOpen: (f: File) =>
       else if (k === 'f') void c.focusSelected();
       else if (k >= '1' && k <= '9') void c.toggleType(Number(k) - 1);
       else if (k === 'r') c.toggleArrows();
+      else if (k === 't' || k === 'T') c.cycleFocus(k === 't' ? 1 : -1);
       else if (k === 'i') c.insertCursor();
       else if (k === 'I') void c.insertAtSelectedEdge('start');
       else if (k === 'A') void c.insertAtSelectedEdge('end');

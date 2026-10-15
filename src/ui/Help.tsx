@@ -29,7 +29,7 @@ const GROUPS: { name: string; keys: [string[], string][] }[] = [
       [['↑', '↓'], 'Move the selection a row, keeping its cycle; or k j'],
       [['←', '→'], 'Move the selected cycle; or h l'],
       [['0', '$'], "Select the object's first or last event's cycle"],
-      [['f'], 'Focus: bring the selection into view'],
+      [['f'], 'Bring the selection into view'],
       [['Esc'], 'Clear the selection and the selected cycle'],
     ],
   },
@@ -46,6 +46,7 @@ const GROUPS: { name: string; keys: [string[], string][] }[] = [
     name: 'Show',
     keys: [
       [['1', '–', '9'], 'Show or hide an object type'],
+      [['t', 'T'], 'Focus the next or previous shown type; the others keep only their bars'],
       [['r'], 'Arrows for everything on screen'],
       [['?'], 'These keys'],
     ],
