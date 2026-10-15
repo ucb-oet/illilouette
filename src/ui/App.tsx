@@ -13,28 +13,36 @@ import { Waterfall } from './Waterfall';
 
 applyThemeChoice(loadThemeChoice());
 
+/** Reads a waterfall file; on failure, throws an error whose message names the file and the problem. */
+async function read(file: File): Promise<MemorySource> {
+  try {
+    return new MemorySource(decodeWaterfall(new Uint8Array(await file.arrayBuffer())));
+  } catch (e) {
+    throw new Error(e instanceof WaterfallError ? `${file.name}: ${e.message}` : `${file.name} could not be read: ${String(e)}`);
+  }
+}
+
 export function App() {
   const [source, setSource] = useState<MemorySource | null>(null);
+  const open = async (file: File) => setSource(await read(file));
+  return source ? <Viewer key={source.info.title + source.info.rowCount} source={source} onOpen={open} /> : <Landing onOpen={open} />;
+}
+
+/** Opening the first file. Its errors show here; the viewer's show in its status bar. */
+function Landing({ onOpen }: { onOpen: (f: File) => Promise<void> }) {
+  const [over, setOver] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-
   const open = async (file: File) => {
     setBusy(true);
     setError('');
     try {
-      setSource(new MemorySource(decodeWaterfall(new Uint8Array(await file.arrayBuffer()))));
+      await onOpen(file);
     } catch (e) {
-      setError(e instanceof WaterfallError ? `${file.name}: ${e.message}` : `${file.name} could not be read: ${String(e)}`);
-    } finally {
+      setError((e as Error).message);
       setBusy(false);
     }
   };
-
-  return source ? <Viewer key={source.info.title + source.info.rowCount} source={source} onOpen={open} /> : <Landing onOpen={open} error={error} busy={busy} />;
-}
-
-function Landing({ onOpen, error, busy }: { onOpen: (f: File) => void; error: string; busy: boolean }) {
-  const [over, setOver] = useState(false);
   return (
     <main class="landing">
       <div
@@ -48,7 +56,7 @@ function Landing({ onOpen, error, busy }: { onOpen: (f: File) => void; error: st
           e.preventDefault();
           setOver(false);
           const f = e.dataTransfer?.files[0];
-          if (f) onOpen(f);
+          if (f) void open(f);
         }}
       >
         <h1>illilouette</h1>
@@ -62,8 +70,11 @@ function Landing({ onOpen, error, busy }: { onOpen: (f: File) => void; error: st
             type="file"
             accept=".pb,.waterfall"
             onChange={(e) => {
-              const f = (e.target as HTMLInputElement).files?.[0];
-              if (f) onOpen(f);
+              const input = e.target as HTMLInputElement;
+              const f = input.files?.[0];
+              // Cleared, so that choosing the same file again, after fixing it, opens it again.
+              input.value = '';
+              if (f) void open(f);
             }}
           />
         </label>
@@ -74,7 +85,7 @@ function Landing({ onOpen, error, busy }: { onOpen: (f: File) => void; error: st
   );
 }
 
-function Viewer({ source, onOpen }: { source: MemorySource; onOpen: (f: File) => void }) {
+function Viewer({ source, onOpen }: { source: MemorySource; onOpen: (f: File) => Promise<void> }) {
   const c = useMemo(() => new Controller(source), [source]);
 
   useEffect(() => {
@@ -105,8 +116,18 @@ function Viewer({ source, onOpen }: { source: MemorySource; onOpen: (f: File) =>
       else return;
       ev.preventDefault();
     };
+    // A notice stays until the next key, click, or wheel, which clears it before acting.
+    const clearNotice = () => {
+      if (c.notice) c.say('');
+    };
+    window.addEventListener('keydown', clearNotice, true);
+    window.addEventListener('pointerdown', clearNotice, true);
+    window.addEventListener('wheel', clearNotice, { capture: true, passive: true });
     window.addEventListener('keydown', onKey);
     return () => {
+      window.removeEventListener('keydown', clearNotice, true);
+      window.removeEventListener('pointerdown', clearNotice, true);
+      window.removeEventListener('wheel', clearNotice, true);
       window.removeEventListener('keydown', onKey);
     };
   }, [c]);

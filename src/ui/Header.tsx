@@ -1,27 +1,33 @@
 // The header: the file's name and range, the jump box, the type and arrow toggles, the palette, and opening another file.
-import { useState } from 'preact/hooks';
+import { useRef, useState } from 'preact/hooks';
 import { fmt } from '../model/present';
 import { Controller, useController } from './controller';
 import { applyThemeChoice, loadThemeChoice, type ThemeChoice } from './theme';
 
-export function Header({ c, onOpen }: { c: Controller; onOpen: (file: File) => void }) {
+export function Header({ c, onOpen }: { c: Controller; onOpen: (file: File) => Promise<void> }) {
   useController(c);
   const info = c.source.info;
   const [query, setQuery] = useState('');
   const [theme, setTheme] = useState<ThemeChoice>(loadThemeChoice());
+  const box = useRef<HTMLInputElement>(null);
 
-  const jump = (ev: Event) => {
+  const jump = async (ev: Event) => {
     ev.preventDefault();
     const q = query.trim();
     let m: RegExpMatchArray | null;
-    if (/^\d[\d,]*$/.test(q)) void c.jumpToCycle(Number(q.replace(/,/g, '')));
-    else if ((m = q.match(/^([A-Za-z_][\w.]*)?#(\d+)$/))) void c.jumpToObject(Number(m[2]), m[1]);
-    else {
+    let landed = false;
+    if (/^\d[\d,]*$/.test(q)) {
+      await c.jumpToCycle(Number(q.replace(/,/g, '')));
+      landed = true;
+    } else if ((m = q.match(/^([A-Za-z_][\w.]*)?#(\d+)$/))) {
+      landed = await c.jumpToObject(Number(m[2]), m[1]);
+    } else {
       // TODO: queries in the trigger syntax of +eventtrace_start, such as event:instruction.decode,pc=0x80000148,
       // repeated forward with Enter and backward with Shift+Enter.
-      c.notice = 'Type a cycle, such as 41440, or an object, such as #3454.';
-      c.changed();
+      c.say('Type a cycle, such as 41440, or an object, such as #3454.');
     }
+    // Once a jump lands, keys move the view again; a jump that found nothing leaves the box to correct.
+    if (landed) box.current?.blur();
   };
   const choose = (t: ThemeChoice) => {
     setTheme(t);
@@ -39,6 +45,7 @@ export function Header({ c, onOpen }: { c: Controller; onOpen: (file: File) => v
       <form class="jump" onSubmit={jump}>
         <input
           id="jump"
+          ref={box}
           type="text"
           value={query}
           onInput={(e) => setQuery((e.target as HTMLInputElement).value)}
@@ -78,8 +85,11 @@ export function Header({ c, onOpen }: { c: Controller; onOpen: (file: File) => v
           accept=".pb,.waterfall"
           hidden
           onChange={(e) => {
-            const f = (e.target as HTMLInputElement).files?.[0];
-            if (f) onOpen(f);
+            const input = e.target as HTMLInputElement;
+            const f = input.files?.[0];
+            // Cleared, so that choosing the same file again, after fixing it, opens it again.
+            input.value = '';
+            if (f) onOpen(f).catch((err: Error) => c.say(err.message));
           }}
         />
       </label>

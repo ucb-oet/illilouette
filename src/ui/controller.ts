@@ -39,7 +39,7 @@ export class Controller {
   /** Arrows for the selected row: from each object it names to it, and from it to each row that names it. */
   related: { from: number; to: number; cycle: number }[] = [];
   allArrows = false;
-  /** A short note for the status bar, such as why a jump did nothing. */
+  /** A short note for the status bar, such as why a jump did nothing; it stays until the next key, click, or wheel. */
   notice = '';
 
   /** The rows on screen, in order, while a type is hidden; null while every row shows. */
@@ -143,6 +143,11 @@ export class Controller {
   }
 
   // ---------------------------------------------------------------- notification
+  /** Shows a note in the status bar, in place of the hover readout. */
+  say(text: string): void {
+    this.notice = text;
+    this.changed();
+  }
   onRedraw(hook: () => void): void {
     this.redrawHook = hook;
   }
@@ -252,8 +257,7 @@ export class Controller {
     const row = await this.rowAsync(this.selected);
     if (this.placeOf(row.index) < 0) {
       const type = this.source.info.types[row.type].name;
-      this.notice = `${objectName(type, row.id)} is hidden with its type; press ${row.type + 1} to show ${type}.`;
-      this.changed();
+      this.say(`${objectName(type, row.id)} is hidden with its type; press ${row.type + 1} to show ${type}.`);
       return;
     }
     const first = row.events.length ? row.events[0].cycle : row.start;
@@ -295,28 +299,26 @@ export class Controller {
     const i = await this.source.rowAt(cycle);
     this.y0 = this.placeAtOrAfter(i) * this.rowH - (this.height - RULER) / 4;
     this.x0 = cycle - this.visibleCycles / 3;
-    this.notice = '';
     this.clamp();
     this.changed();
   }
 
-  async jumpToObject(id: number, typeName?: string): Promise<void> {
+  /** Selects and focuses an object; says why when there is none, and returns whether there was. */
+  async jumpToObject(id: number, typeName?: string): Promise<boolean> {
     const types = this.source.info.types;
     const type = typeName === undefined ? undefined : types.findIndex((t) => t.name === typeName);
     if (type === -1) {
-      this.notice = `No object type is named ${typeName}.`;
-      this.changed();
-      return;
+      this.say(`No object type is named ${typeName}.`);
+      return false;
     }
     const i = await this.source.find(id, type);
     if (i === null) {
-      this.notice = `No ${typeName === undefined ? `object #${id}` : objectName(typeName, id)} is in this file.`;
-      this.changed();
-      return;
+      this.say(`No ${typeName === undefined ? `object #${id}` : objectName(typeName, id)} is in this file.`);
+      return false;
     }
-    this.notice = '';
     this.select(i);
     await this.focusSelected();
+    return true;
   }
 
   /** Shows or hides a type's rows, closing up the rows on screen around them. The row being looked at stays in place:

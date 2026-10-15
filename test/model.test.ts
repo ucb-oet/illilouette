@@ -208,6 +208,22 @@ describe.skipIf(!haveFixtures)('Controller panning to a selected object’s star
   });
 });
 
+describe.skipIf(!haveFixtures)('Controller jumping to an object', () => {
+  it('says why it found nothing, and selects what it finds', async () => {
+    const c = new Controller(load('rocket-rv64ui-p-add'));
+    c.setSize(1200, 800);
+    await c.home();
+    expect(await c.jumpToObject(99999)).toBe(false);
+    expect(c.notice).toBe('No object #99999 is in this file.');
+    expect(await c.jumpToObject(97, 'packet')).toBe(false);
+    expect(c.notice).toBe('No object type is named packet.');
+    c.say('');
+    expect(await c.jumpToObject(97, 'fetch')).toBe(true);
+    expect(c.selected).toBe(await c.source.find(97, FETCH));
+    expect(c.notice).toBe('');
+  });
+});
+
 describe.skipIf(!haveFixtures)('Controller moving from the timeline bar', () => {
   it('scrolls rows to the first object in the new range', async () => {
     for (const name of ['rocket-rv64ui-p-add', 'sodor-rv32mi-p-illegal']) {

@@ -28,7 +28,7 @@ npm test           # decodes the fixtures and checks their rows
 npm run build      # type-checks, then writes the static page to dist/
 ```
 
-Open the page and drop a waterfall file on it, or choose one.
+Open the page and drop a waterfall file on it, or choose one. Open… in the header replaces it; a file that cannot be read leaves the current one open, and the status bar says why.
 
 ## Using it
 
@@ -42,11 +42,11 @@ Open the page and drop a waterfall file on it, or choose one.
 | `W` `A` `S` `D` | Move up, left, down, right |
 | Click | Select an object; its arrows and details appear |
 | `F` | Focus: bring the selection into view, its first event a third of the way in |
-| `↑` / `↓`, `Esc` | Move or clear the selection |
+| `↑` / `↓`, `Esc` | Move the selection a row, scrolling rows only, or clear it |
 | `1`–`9` | Show or hide an object type; its rows close up |
 | `0` / `$` | Pan to the selection's start or end, as vim's start and end of line |
 | `r` | Show or hide arrows for everything on screen; none show once zoomed out a step past where the label column loses its text or the cells their letters |
-| `/` | Jump to a cycle (`41440`) or an object (`#3454`, `instruction#3454`) |
+| `/` | Jump to a cycle (`41440`) or an object (`#3454`, `instruction#3454`); once it lands, keys move the view again |
 
 Rows come in the file's order. An object with a parent sits under it, such as a Rocket instruction under the fetch packet it decoded from, its type name indented; hiding the parent's type takes the indent away.
 
