@@ -47,6 +47,9 @@ export function TimelineBar({ c }: { c: Controller }) {
       ctx.strokeStyle = th.accent;
       ctx.lineWidth = 1.5;
       ctx.stroke();
+      // Cursors, so that a distant one can be clicked back to.
+      ctx.fillStyle = th.text;
+      for (const k of c.cursors) ctx.fillRect(PAD + ((k.edge - firstCycle) / span) * w - 0.75, 7, 1.5, H - 14);
       // The trace's range at the ends, unless the marker covers them.
       ctx.fillStyle = th.subtext0;
       if (mx > PAD + ctx.measureText(left).width + 8) ctx.fillText(left, PAD + 2, mid - 9);

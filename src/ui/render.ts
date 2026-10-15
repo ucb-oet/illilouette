@@ -108,6 +108,10 @@ export function drawWaterfall(ctx: CanvasRenderingContext2D, c: Controller, th: 
     ctx.fillStyle = rgba(th.overlay0, th.dark ? 0.12 : 0.14);
     ctx.fillRect(c.xOf(c.hover.cycle), RULER, Math.max(1, cw), H - RULER);
   }
+  if (c.column !== null) {
+    ctx.fillStyle = rgba(th.accent, th.dark ? 0.14 : 0.12);
+    ctx.fillRect(c.xOf(c.column), RULER, Math.max(1, cw), H - RULER);
+  }
 
   const arrows: Arrow[] = [];
   if (arrowsShown(c)) {
@@ -136,6 +140,17 @@ export function drawWaterfall(ctx: CanvasRenderingContext2D, c: Controller, th: 
     const xc = c.xOf(a.cycle) + Math.min(cw, 24) / 2;
     drawArrow(ctx, th, xc, c.rowY(a.from) + rowH / 2, c.rowY(a.to) + rowH / 2);
   }
+  // The selected cell, where the selected row and column cross, outlined as vim's block cursor.
+  if (c.selected !== null && c.column !== null && c.placeOf(c.selected) >= 0) {
+    const w = Math.max(4, cw);
+    rr(ctx, c.xOf(c.column) + (cw - w) / 2, c.rowY(c.selected) + 0.5, w, rowH - 1, cw >= 10 ? 4 : 1);
+    ctx.strokeStyle = th.accent;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+  // Cursors: lines on the clock edges they mark, in the gaps between cells.
+  ctx.fillStyle = rgba(th.text, 0.8);
+  for (const k of c.cursors) ctx.fillRect(c.xOf(k.edge) - 0.75, RULER, 1.5, H - RULER);
   ctx.restore();
 
   // ---- label column
@@ -172,6 +187,13 @@ export function drawWaterfall(ctx: CanvasRenderingContext2D, c: Controller, th: 
     ctx.fillStyle = rgba(th.overlay0, 0.2);
     ctx.fillRect(c.xOf(c.hover.cycle), 0, Math.max(1, cw), RULER - 1);
   }
+  if (c.column !== null) {
+    ctx.fillStyle = rgba(th.accent, th.dark ? 0.3 : 0.25);
+    ctx.fillRect(c.xOf(c.column), 0, Math.max(1, cw), RULER - 1);
+  }
+  // Tick labels give way to the cursors' texts.
+  const marks = layoutCursors(ctx, c);
+  const boxes = [...marks.tags, ...marks.gaps].filter((b): b is RulerBox => b !== null);
   ctx.font = MONO(11);
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'left';
@@ -180,10 +202,88 @@ export function drawWaterfall(ctx: CanvasRenderingContext2D, c: Controller, th: 
     if (x < gx) continue;
     ctx.fillStyle = th.surface2;
     ctx.fillRect(x, RULER - 7, 1, 6);
+    const text = fmt(k);
+    const w = ctx.measureText(text).width;
+    if (boxes.some((b) => x + 4 < b.left + b.w + 3 && x + 4 + w > b.left - 3)) continue;
     ctx.fillStyle = th.subtext0;
-    ctx.fillText(fmt(k), x + 4, RULER / 2);
+    ctx.fillText(text, x + 4, RULER / 2);
   }
+  drawCursorMarks(ctx, c, th, marks);
   ctx.restore();
+}
+
+/** A text in a box on the ruler. */
+interface RulerBox {
+  left: number;
+  w: number;
+  text: string;
+}
+
+/** Where the cursors' texts go on the ruler: each cursor's name and cycle in a tag beside its line, right of it as tick labels
+ *  are, or left of it when that would run into the next cursor; none when neither side has room. Between neighbors,
+ *  the gap, such as "Δ 4", where it fits between their tags. */
+function layoutCursors(ctx: CanvasRenderingContext2D, c: Controller): { tags: (RulerBox | null)[]; gaps: (RulerBox | null)[] } {
+  ctx.font = MONO(11, 600);
+  const xs = c.cursors.map((k) => c.xOf(k.edge));
+  const tags: (RulerBox | null)[] = [];
+  // Where the last tag or line ends, which the next tag must clear.
+  let floor = -Infinity;
+  xs.forEach((x, i) => {
+    const { edge, name } = c.cursors[i];
+    const text = name ? `${name} · ${fmt(edge)}` : fmt(edge);
+    const w = ctx.measureText(text).width + 10;
+    const ceiling = Math.min(c.width, i + 1 < xs.length ? xs[i + 1] - 2 : Infinity);
+    let left: number | null = null;
+    if (x >= floor && x + w <= ceiling) left = x;
+    else if (x - w >= floor) left = x - w;
+    tags.push(left === null ? null : { left, w, text });
+    floor = Math.max(x, left === null ? x : left + w) + 2;
+  });
+  const gaps = xs.slice(1).map((x, i): RulerBox | null => {
+    const text = `Δ ${fmt(c.cursors[i + 1].edge - c.cursors[i].edge)}`;
+    const w = ctx.measureText(text).width + 10;
+    const from = Math.max(c.gutterW, xs[i], tags[i] ? tags[i]!.left + tags[i]!.w : -Infinity);
+    const to = Math.min(c.width, x, tags[i + 1]?.left ?? Infinity);
+    return to - from >= w + 8 ? { left: (from + to - w) / 2, w, text } : null;
+  });
+  return { tags, gaps };
+}
+
+/** The cursors on the ruler: their lines, a line along the ruler's foot between neighbors, which leaves the tick
+ *  labels readable, and the texts laid out by layoutCursors. */
+function drawCursorMarks(ctx: CanvasRenderingContext2D, c: Controller, th: Theme, marks: ReturnType<typeof layoutCursors>): void {
+  const xs = c.cursors.map((k) => c.xOf(k.edge));
+  ctx.font = MONO(11, 600);
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'left';
+  for (let i = 0; i + 1 < xs.length; i++) {
+    const a = Math.max(xs[i], c.gutterW);
+    const b = Math.min(xs[i + 1], c.width);
+    if (b <= a) continue;
+    ctx.fillStyle = rgba(th.text, 0.5);
+    ctx.fillRect(a, RULER - 4, b - a, 1.5);
+    const g = marks.gaps[i];
+    if (!g) continue;
+    rr(ctx, g.left, 6, g.w, 16, 4);
+    ctx.fillStyle = th.mantle;
+    ctx.fill();
+    ctx.strokeStyle = rgba(th.text, 0.5);
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.fillStyle = th.text;
+    ctx.fillText(g.text, g.left + 5, RULER / 2);
+  }
+  xs.forEach((x, i) => {
+    ctx.fillStyle = rgba(th.text, 0.8);
+    ctx.fillRect(x - 0.75, 0, 1.5, RULER);
+    const t = marks.tags[i];
+    if (!t) return;
+    rr(ctx, t.left, 6, t.w, 16, 4);
+    ctx.fillStyle = th.text;
+    ctx.fill();
+    ctx.fillStyle = th.base;
+    ctx.fillText(t.text, t.left + 5, RULER / 2);
+  });
 }
 
 function padOf(rowH: number): number {

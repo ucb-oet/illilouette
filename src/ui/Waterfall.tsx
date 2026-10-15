@@ -2,7 +2,7 @@
 import { useEffect, useRef } from 'preact/hooks';
 import { effectText, fieldText, fmt, objectName, outcomeText, segmentAt, shortName } from '../model/present';
 import type { RowView } from '../model/source';
-import { Controller } from './controller';
+import { Controller, RULER, useController } from './controller';
 import { drawWaterfall } from './render';
 import { onThemeChange, readTheme, type Theme } from './theme';
 
@@ -84,9 +84,14 @@ export function Waterfall({ c }: { c: Controller }) {
     const onUp = (ev: PointerEvent) => {
       el.classList.remove('grabbing');
       if (drag && !drag.moved) {
-        const row = c.rowAtY(local(ev).y);
+        // A click selects the object under it, and the cycle, as a click in vim puts its cursor on a line and column;
+        // a click on the label column keeps the cycle.
+        const { x, y } = local(ev);
+        const row = c.rowAtY(y);
         const r = row === null ? undefined : c.row(row);
         c.select(r && !c.hiddenTypes.has(r.type) ? row : null);
+        const cycle = c.cycleAtX(x);
+        if (y > RULER && cycle !== null) c.selectColumn(cycle);
       }
       drag = null;
     };
@@ -154,7 +159,46 @@ export function Waterfall({ c }: { c: Controller }) {
       <canvas ref={canvas} tabIndex={0} aria-label="Pipeline waterfall: one row per object, one column per cycle" />
       <div class="splitter" ref={splitter} title="Drag to resize the label column" />
       <div class="tooltip" ref={tip} role="status" hidden />
+      <CursorName c={c} />
     </div>
+  );
+}
+
+/** The box a new cursor's name is typed in, on the ruler at its line, filled with its cycle. Enter or Esc keeps the
+ *  name, as Esc leaves vim's insert mode; so does clicking elsewhere. */
+function CursorName({ c }: { c: Controller }) {
+  useController(c);
+  const box = useRef<HTMLInputElement>(null);
+  const done = useRef(false);
+  const edge = c.naming;
+  useEffect(() => {
+    done.current = false;
+    box.current?.focus();
+    box.current?.select();
+  }, [edge]);
+  if (edge === null) return null;
+  const keep = () => {
+    if (done.current) return;
+    done.current = true;
+    c.nameCursor(edge, box.current?.value ?? '');
+  };
+  return (
+    <input
+      ref={box}
+      class="cursor-name"
+      style={{ left: `${Math.max(c.gutterW, Math.min(c.xOf(edge), c.width - 140))}px` }}
+      defaultValue={fmt(edge)}
+      aria-label="Cursor name"
+      spellcheck={false}
+      autocomplete="off"
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === 'Escape') {
+          e.preventDefault();
+          keep();
+        }
+      }}
+      onBlur={keep}
+    />
   );
 }
 

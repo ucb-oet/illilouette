@@ -32,22 +32,30 @@ Open the page and drop a waterfall file on it, or choose one. Drop or open anoth
 
 ## Using it
 
+Letters are as typed: a capital takes Shift.
+
 | Input | Does |
 |---|---|
 | Scroll / two-finger swipe | Move through rows; sideways or with Shift, pan time |
 | Click or drag the timeline bar | Move there; rows follow to the first object in the new range |
 | Pinch, Ctrl+scroll | Zoom time only |
-| `Q` / `E` | Zoom time out / in |
-| Shift+`Q` / `E` | Zoom rows |
-| `W` `A` `S` `D` | Move up, left, down, right |
+| `q` / `e` | Zoom time out / in |
+| `Q` / `E` | Zoom rows |
+| `w` `a` `s` `d` | Move up, left, down, right |
 | Hover a label | The object, its whole label, and how it ended |
-| Click | Select an object; its arrows and details appear |
-| `F` | Focus: bring the selection into view, its first event a third of the way in |
-| `↑` / `↓`, `Esc` | Move the selection a row, scrolling rows only, or clear it |
+| Click | Select an object and the cycle; its arrows and details appear |
+| `f` | Focus: bring the selection into view, its first event a third of the way in |
+| `↑` `↓` or `k` `j` | Move the selection a row, keeping its cycle, and scrolling rows only |
+| `←` `→` or `h` `l` | Move the selected cycle; from the selected object's first event when none is selected |
+| `Esc` | Clear the selection and the selected cycle |
 | `1`–`9` | Show or hide an object type; its rows close up |
-| `0` / `$` | Pan to the selection's start or end, as vim's start and end of line |
+| `0` / `$` | Select the selection's first or last event's cycle, and pan to it, as vim's start and end of line |
+| `i` | Put a cursor on the edge where the selected cycle starts, as vim's `i` inserts before the cursor, and name it: type a name, or keep its cycle, then Enter or `Esc`. The ruler shows each cursor, and between neighbors the gap, such as `Δ 4` |
+| `I` / `A` | Put a cursor at the selected object's start, or after its end, as vim's `I` and `A` insert at the start and end of the line; selects its first or last event's cycle, as `0` and `$` do |
+| `x` | Remove the cursor at the selected cycle: on the edge where it starts, or else the edge after it |
 | `r` | Show or hide arrows for everything on screen; none show once zoomed out a step past where the label column loses its text or the cells their letters |
 | `/` | Jump to a cycle (`41440`) or an object (`#3454`, `instruction#3454`); once it lands, keys move the view again |
+| `?` | List these keys |
 
 Rows come in the file's order. An object with a parent sits under it, such as a Rocket instruction under the fetch packet it decoded from, its type name indented; hiding the parent's type takes the indent away.
 

@@ -1,7 +1,7 @@
 // The viewer's state and navigation, shared by the canvas, which redraws from it, and the Preact panels, which
 // subscribe to it. Rows come from the source in chunks and are cached here.
 import { useEffect, useState } from 'preact/hooks';
-import { objectName } from '../model/present';
+import { fmt, objectName } from '../model/present';
 import type { RowView, Source } from '../model/source';
 import { CHAR_EM, labelColumns, labelFontSize } from './labels';
 
@@ -11,6 +11,12 @@ const MAX_CHUNKS = 64;
 export const RULER = 28;
 /** The factor one press of a zoom key zooms by. */
 export const ZOOM_STEP = 1.25;
+
+/** A cursor on a clock edge, by the cycle the edge starts. An empty name shows as that cycle. */
+export interface Cursor {
+  edge: number;
+  name: string;
+}
 
 export interface Hover {
   row: number | null;
@@ -35,10 +41,18 @@ export class Controller {
   height = 1;
   hover: Hover | null = null;
   selected: number | null = null;
+  /** The selected cycle, as vim's cursor column is to its current line. */
+  column: number | null = null;
   hiddenTypes = new Set<number>();
   /** Arrows for the selected row: from each object it names to it, and from it to each row that names it. */
   related: { from: number; to: number; cycle: number }[] = [];
   allArrows = false;
+  /** Cursors on clock edges, in order. */
+  cursors: Cursor[] = [];
+  /** The edge of the cursor whose name is being typed, if any. */
+  naming: number | null = null;
+  /** Whether the list of keys is open. */
+  helpOpen = false;
   /** A short note for the status bar, such as why a jump did nothing; it stays until the next key, click, or wheel. */
   notice = '';
 
@@ -160,6 +174,11 @@ export class Controller {
   }
   /** Redraws the canvas and tells the panels that state changed. */
   changed(): void {
+    // The row and cycle under the pointer move with the view, as when a key pans it.
+    if (this.hover) {
+      this.hover.row = this.rowAtY(this.hover.y);
+      this.hover.cycle = this.cycleAtX(this.hover.x);
+    }
     this.redraw();
     for (const l of this.listeners) l();
   }
@@ -236,6 +255,27 @@ export class Controller {
     this.changed();
   }
 
+  /** Selects a cycle, within the trace; with `reveal`, pans time just enough to keep it on screen. */
+  selectColumn(cycle: number | null, reveal = false): void {
+    const { firstCycle, lastCycle } = this.source.info;
+    this.column = cycle === null ? null : Math.min(Math.max(Math.floor(cycle), firstCycle), lastCycle);
+    if (this.column !== null && reveal) {
+      const margin = Math.min(3, this.visibleCycles / 6);
+      if (this.column < this.x0 + margin) this.x0 = this.column - margin;
+      else if (this.column + 1 > this.x0 + this.visibleCycles - margin) this.x0 = this.column + 1 - this.visibleCycles + margin;
+      this.clamp();
+    }
+    this.changed();
+  }
+
+  /** Moves the selected cycle by cycles. With none selected, selects the selected object's first event's, or with no
+   *  object selected, the middle of the view's. */
+  async moveColumn(delta: number): Promise<void> {
+    if (this.column !== null) return this.selectColumn(this.column + delta, true);
+    const row = this.selected === null ? null : await this.rowAsync(this.selected);
+    this.selectColumn(row ? (row.events[0]?.cycle ?? row.start) : this.x0 + this.visibleCycles / 2, true);
+  }
+
   /** Moves the selection by rows on screen; with nothing selected, selects the top row. */
   moveSelection(delta: number): void {
     const p = this.selected === null ? -1 : this.placeOf(this.selected);
@@ -267,15 +307,22 @@ export class Controller {
     this.changed();
   }
 
-  /** Pans time to the selected object's start, its first cycle a third of the way in from the left, or to its end,
-   *  its last cycle a third of the way in from the right; rows move only to bring its row into view. */
+  /** Selects the cycle of the selected object's first or last event, as vim's 0 and $ go to the start and end of the
+   *  line, and pans time to put it a third of the way in from the left, or from the right; rows move only to bring
+   *  its row into view. */
   async toSelectedEdge(edge: 'start' | 'end'): Promise<void> {
     if (this.selected === null) return;
     const i = this.selected;
     const row = await this.rowAsync(i);
     if (this.selected !== i) return;
-    if (edge === 'start') this.x0 = Math.min(row.start, row.events[0]?.cycle ?? row.start) - this.visibleCycles / 3;
-    else this.x0 = (row.end ?? this.source.info.lastCycle + 1) - 1 - (this.visibleCycles * 2) / 3;
+    const events = row.events;
+    if (edge === 'start') {
+      this.column = events.length ? events[0].cycle : row.start;
+      this.x0 = this.column - this.visibleCycles / 3;
+    } else {
+      this.column = events.length ? events[events.length - 1].cycle : (row.end ?? this.source.info.lastCycle + 1) - 1;
+      this.x0 = this.column - (this.visibleCycles * 2) / 3;
+    }
     this.reveal(i);
     this.clamp();
     this.changed();
@@ -347,6 +394,60 @@ export class Controller {
       this.y0 = this.placeOf(anchor) * this.rowH - offset;
     }
     this.clamp();
+    this.changed();
+  }
+
+  /** Puts a cursor on an edge, by default the one where the selected cycle starts, as vim's i inserts before the
+   *  character under its cursor, and opens its name for typing. Does nothing where a cursor is already. */
+  insertCursor(at: number | null = this.column): void {
+    if (at === null) {
+      this.say('Select a cycle first: click one, or press 0 or $ on a selected object.');
+      return;
+    }
+    const { firstCycle, lastCycle } = this.source.info;
+    const edge = Math.min(Math.max(at, firstCycle), lastCycle + 1);
+    if (this.cursors.some((k) => k.edge === edge)) return;
+    this.cursors = [...this.cursors, { edge, name: '' }].sort((a, b) => a.edge - b.edge);
+    this.naming = edge;
+    this.changed();
+  }
+
+  /** Names a cursor, which ends typing its name. A name left empty, or as the cycle it was filled with, shows as the
+   *  cycle. */
+  nameCursor(edge: number, name: string): void {
+    const text = name.trim();
+    const plain = text === fmt(edge) || text === String(edge) ? '' : text;
+    this.cursors = this.cursors.map((k) => (k.edge === edge ? { edge, name: plain } : k));
+    this.naming = null;
+    this.changed();
+  }
+
+  /** Puts a cursor at the selected object's front or tail, as vim's I and A insert at the start and end of the line:
+   *  on the edge where its first event's cycle starts, or on the edge after its last event's cycle. Selects that
+   *  event's cycle, as 0 and $ do. */
+  async insertAtSelectedEdge(end: 'start' | 'end'): Promise<void> {
+    if (this.selected === null) {
+      this.say('Select an object first.');
+      return;
+    }
+    await this.toSelectedEdge(end);
+    if (this.column !== null) this.insertCursor(end === 'start' ? this.column : this.column + 1);
+  }
+
+  /** Removes the cursor on the selected cycle, as vim's x deletes the character under its cursor: the one on the
+   *  edge where the cycle starts, or else the one on the edge after it, where A puts one. */
+  deleteCursor(): void {
+    const col = this.column;
+    if (col === null) return;
+    const edge = this.cursors.some((k) => k.edge === col) ? col : col + 1;
+    const kept = this.cursors.filter((k) => k.edge !== edge);
+    if (kept.length === this.cursors.length) return;
+    this.cursors = kept;
+    this.changed();
+  }
+
+  toggleHelp(): void {
+    this.helpOpen = !this.helpOpen;
     this.changed();
   }
 

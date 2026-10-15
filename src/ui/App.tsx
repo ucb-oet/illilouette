@@ -6,6 +6,7 @@ import { fmt, objectName, segmentAt } from '../model/present';
 import { Controller, useController, ZOOM_STEP } from './controller';
 import { DetailPanel } from './DetailPanel';
 import { Header } from './Header';
+import { Help } from './Help';
 import { DETAIL_NAMES, detailOf } from './render';
 import { applyThemeChoice, loadThemeChoice } from './theme';
 import { TimelineBar } from './TimelineBar';
@@ -100,6 +101,14 @@ function Viewer({ source, onOpen }: { source: MemorySource; onOpen: (f: File) =>
       }
       if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
       const k = ev.key;
+      // While the list of keys is open, only its own keys act.
+      if (c.helpOpen) {
+        if (k === '?' || k === 'Escape') {
+          c.toggleHelp();
+          ev.preventDefault();
+        }
+        return;
+      }
       const x = c.hover ? c.hover.x : c.gutterW + c.plotW / 2;
       const rows = Math.max(1, Math.floor((c.height - 28) / c.rowH));
       if (k === 'q' || k === 'e') c.zoomTime(x, k === 'e' ? ZOOM_STEP : 1 / ZOOM_STEP);
@@ -109,11 +118,23 @@ function Viewer({ source, onOpen }: { source: MemorySource; onOpen: (f: File) =>
       else if (k === 'f') void c.focusSelected();
       else if (k >= '1' && k <= '9') void c.toggleType(Number(k) - 1);
       else if (k === 'r') c.toggleArrows();
+      else if (k === 'i') c.insertCursor();
+      else if (k === 'I') void c.insertAtSelectedEdge('start');
+      else if (k === 'A') void c.insertAtSelectedEdge('end');
+      else if (k === 'x') c.deleteCursor();
       else if (k === '0') void c.toSelectedEdge('start');
       else if (k === '$') void c.toSelectedEdge('end');
-      else if (k === 'Escape') c.select(null);
-      else if (k === 'ArrowDown' || k === 'ArrowUp') c.moveSelection(k === 'ArrowDown' ? 1 : -1);
+      else if (k === 'Escape') {
+        c.select(null);
+        c.selectColumn(null);
+      }
+      // The selection moves as vim's cursor does: by rows, keeping its column, and by cycles.
+      else if (k === 'ArrowDown' || k === 'j') c.moveSelection(1);
+      else if (k === 'ArrowUp' || k === 'k') c.moveSelection(-1);
+      else if (k === 'ArrowRight' || k === 'l') void c.moveColumn(1);
+      else if (k === 'ArrowLeft' || k === 'h') void c.moveColumn(-1);
       else if (k === '/') document.getElementById('jump')?.focus();
+      else if (k === '?') c.toggleHelp();
       else return;
       ev.preventDefault();
     };
@@ -179,6 +200,7 @@ function Viewer({ source, onOpen }: { source: MemorySource; onOpen: (f: File) =>
         <DetailPanel c={c} />
       </div>
       <Status c={c} />
+      <Help c={c} />
       <div class="dropping" hidden={!dropping}>
         <p>Drop to open in place of {source.info.title}</p>
       </div>
@@ -207,12 +229,7 @@ function Status({ c }: { c: Controller }) {
     <footer class="status">
       <span class="readout">{c.notice ? <span class="notice">{c.notice}</span> : readout}</span>
       <span>
-        {zoom} · <kbd>W</kbd>
-        <kbd>A</kbd>
-        <kbd>S</kbd>
-        <kbd>D</kbd> move · <kbd>Q</kbd>
-        <kbd>E</kbd> zoom time · <kbd>Shift</kbd>+<kbd>Q</kbd>
-        <kbd>E</kbd> zoom rows · <kbd>F</kbd> focus
+        {zoom} · <kbd>?</kbd> keys
       </span>
     </footer>
   );

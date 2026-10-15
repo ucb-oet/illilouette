@@ -188,7 +188,7 @@ describe.skipIf(!haveFixtures)('Controller hiding a type', () => {
 });
 
 describe.skipIf(!haveFixtures)('Controller panning to a selected object’s start and end', () => {
-  it('brings either end of a long miss into view, and its row with it', async () => {
+  it('brings either end of a long miss into view, its row with it, and selects its first or last event’s cycle', async () => {
     const c = new Controller(load('rocket-rv64ui-p-add'));
     c.setSize(1200, 800);
     await c.home();
@@ -200,10 +200,13 @@ describe.skipIf(!haveFixtures)('Controller panning to a selected object’s star
     expect(packet.segments.map((s) => c.source.info.types[FETCH].stages[s.stage])).toContain('Miss');
     c.select(i);
     await c.toSelectedEdge('end');
-    expect(c.xOf(packet.end! - 1)).toBeCloseTo(c.gutterW + (c.plotW * 2) / 3);
+    const last = packet.events[packet.events.length - 1].cycle;
+    expect(c.column).toBe(last);
+    expect(c.xOf(last)).toBeCloseTo(c.gutterW + (c.plotW * 2) / 3);
     expect(c.rowY(i)).toBeGreaterThanOrEqual(RULER);
     expect(c.rowY(i) + c.rowH).toBeLessThanOrEqual(c.height);
     await c.toSelectedEdge('start');
+    expect(c.column).toBe(packet.events[0].cycle);
     expect(c.xOf(packet.events[0].cycle)).toBeCloseTo(c.gutterW + c.plotW / 3);
   });
 });
@@ -221,6 +224,86 @@ describe.skipIf(!haveFixtures)('Controller jumping to an object', () => {
     expect(await c.jumpToObject(97, 'fetch')).toBe(true);
     expect(c.selected).toBe(await c.source.find(97, FETCH));
     expect(c.notice).toBe('');
+  });
+});
+
+describe.skipIf(!haveFixtures)('The selected column', () => {
+  it('moves by cycles, starting from the selected object’s first event, and stays on screen', async () => {
+    const c = new Controller(load('rocket-rv64ui-p-add'));
+    c.setSize(1200, 800);
+    await c.home();
+    await c.jumpToObject(60, 'instruction');
+    expect(c.column).toBe(null);
+    await c.moveColumn(1);
+    expect(c.column).toBe(1511);
+    for (let k = 0; k < 100; k++) await c.moveColumn(1);
+    expect(c.column).toBe(1611);
+    expect(c.xOf(1612)).toBeLessThanOrEqual(c.width);
+    expect(c.xOf(1611)).toBeGreaterThanOrEqual(c.gutterW);
+    c.selectColumn(c.source.info.lastCycle + 40);
+    expect(c.column).toBe(c.source.info.lastCycle);
+  });
+});
+
+describe.skipIf(!haveFixtures)('Cursors', () => {
+  it('go on the edge where the selected cycle starts, once each, in order, named by their cycle unless named', async () => {
+    const c = new Controller(load('rocket-rv64ui-p-add'));
+    c.setSize(1200, 800);
+    await c.home();
+    c.insertCursor();
+    expect(c.cursors).toEqual([]);
+    expect(c.notice).toMatch(/^Select a cycle first/);
+    c.selectColumn(1515);
+    c.insertCursor();
+    expect(c.naming).toBe(1515);
+    c.nameCursor(1515, ' 1,515 ');
+    c.selectColumn(1511);
+    c.insertCursor();
+    c.nameCursor(1511, 'decode');
+    c.insertCursor();
+    expect(c.naming).toBe(null);
+    expect(c.cursors).toEqual([
+      { edge: 1511, name: 'decode' },
+      { edge: 1515, name: '' },
+    ]);
+    c.selectColumn(1513);
+    c.deleteCursor();
+    expect(c.cursors.length).toBe(2);
+    c.selectColumn(1515);
+    c.deleteCursor();
+    expect(c.cursors).toEqual([{ edge: 1511, name: 'decode' }]);
+  });
+
+  it('go at the selected object’s start and after its end with I and A, and x takes the one A put', async () => {
+    const c = new Controller(load('rocket-rv64ui-p-add'));
+    c.setSize(1200, 800);
+    await c.home();
+    await c.insertAtSelectedEdge('start');
+    expect(c.notice).toBe('Select an object first.');
+    await c.jumpToObject(60, 'instruction');
+    await c.insertAtSelectedEdge('start');
+    c.nameCursor(1511, '');
+    await c.insertAtSelectedEdge('end');
+    expect(c.naming).toBe(1515);
+    c.nameCursor(1515, '');
+    // Instruction#60's life, 1,511–1,514, is the 4 cycles between them.
+    expect(c.cursors.map((k) => k.edge)).toEqual([1511, 1515]);
+    expect(c.column).toBe(1514);
+    c.deleteCursor();
+    expect(c.cursors.map((k) => k.edge)).toEqual([1511]);
+  });
+});
+
+describe.skipIf(!haveFixtures)('The hovered cycle', () => {
+  it('follows the view when a key pans it', async () => {
+    const c = new Controller(load('rocket-rv64ui-p-add'));
+    c.setSize(1200, 800);
+    await c.home();
+    const x = c.gutterW + 100;
+    c.hover = { row: null, cycle: c.cycleAtX(x), x, y: RULER + 50 };
+    const before = c.hover.cycle!;
+    c.panTime(10);
+    expect(c.hover.cycle).toBe(before + 10);
   });
 });
 
