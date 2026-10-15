@@ -22,18 +22,20 @@ describe.skipIf(!haveFixtures)('decodeWaterfall on Chipyard’s files', () => {
   it('reads Rocket’s two types, each instruction under the packet its decode names', () => {
     const w = decodeWaterfall(fixture('rocket-rv64ui-p-add.waterfall'));
     const t = w.strings;
+    // Parents' type first, as Rocket's view lists it.
     expect(w.types.map((x) => [t[x.name], x.stages.map((s) => t[s])])).toEqual([
-      ['instruction', ['Decode', 'Execute', 'Memory', 'Writeback']],
       ['fetch', ['S1', 'S2', 'Miss', 'Queue', 'Buffer']],
+      ['instruction', ['Decode', 'Execute', 'Memory', 'Writeback']],
     ]);
+    const [FETCH, INSTRUCTION] = [0, 1];
     expect(w.rows).toHaveLength(2080);
     w.rows.forEach((r, i) => {
       // Each object is drawn from the cycle of the event that creates it, in Decode or S1.
       expect(r.segments[0].from).toBe(r.events[0].cycle);
-      expect(t[w.types[r.type].stages[r.segments[0].stage]]).toBe(r.type === 0 ? 'Decode' : 'S1');
-      if (r.type === 1) return expect(r.parent).toBeNull();
+      expect(t[w.types[r.type].stages[r.segments[0].stage]]).toBe(r.type === INSTRUCTION ? 'Decode' : 'S1');
+      if (r.type === FETCH) return expect(r.parent).toBeNull();
       expect(r.parent).toBeLessThan(i);
-      expect(w.rows[r.parent!].type).toBe(1);
+      expect(w.rows[r.parent!].type).toBe(FETCH);
       const fetch = r.events[0].fields.find((f) => t[f.name] === 'fetch')!;
       expect(fetch.row).toBe(r.parent);
       expect(t[fetch.text]).toBe(`fetch#${w.rows[r.parent!].id}`);

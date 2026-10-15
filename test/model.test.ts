@@ -87,32 +87,35 @@ describe.skipIf(!haveFixtures)('MemorySource on a window', () => {
   });
 });
 
+// Rocket's types, parents' first.
+const [FETCH, INSTRUCTION] = [0, 1];
+
 describe.skipIf(!haveFixtures)('MemorySource on Rocket, with instructions under fetch packets', () => {
   const source = haveFixtures ? load('rocket-rv64ui-p-add') : (undefined as never);
   const all = async () => source.rows(0, source.info.rowCount);
 
   it('gives each instruction its packet as its ancestor', async () => {
-    for (const r of await all()) expect(r.ancestorTypes).toEqual(r.type === 0 ? [1] : []);
-    expect(source.info.types.map((t) => t.ancestorTypes)).toEqual([[1], []]);
+    for (const r of await all()) expect(r.ancestorTypes).toEqual(r.type === INSTRUCTION ? [FETCH] : []);
+    expect(source.info.types.map((t) => t.ancestorTypes)).toEqual([[], [FETCH]]);
   });
 
   it('describes a create event in the cycle its row starts, then the edge after it', async () => {
-    const [instruction, fetch] = source.info.types.map((t) => t.stages);
+    const stages = source.info.types.map((t) => t.stages);
     const first = async (id: number, type: number) => {
       const [r] = await source.rows((await source.find(id, type))!, (await source.find(id, type))! + 1);
-      return effectText(r, r.events[0], type === 0 ? instruction : fetch);
+      return effectText(r, r.events[0], stages[type]);
     };
     // Stalled at decode, so it stays in Decode; issues at once; a packet.
-    expect(await first(4, 0)).toBe('created in Decode at 412');
-    expect(await first(60, 0)).toBe('created in Decode at 1,511 · enters Execute at 1,512');
-    expect(await first(97, 1)).toMatch(/^created in S1 at [\d,]+ · enters S2 at [\d,]+$/);
+    expect(await first(4, INSTRUCTION)).toBe('created in Decode at 412');
+    expect(await first(60, INSTRUCTION)).toBe('created in Decode at 1,511 · enters Execute at 1,512');
+    expect(await first(97, FETCH)).toMatch(/^created in S1 at [\d,]+ · enters S2 at [\d,]+$/);
   });
 
   it('lists the rows of the types shown, in file order', async () => {
     const rows = await all();
-    const instructions = [...(await source.visibleRows(new Set([1])))].map((i) => rows[i]);
+    const instructions = [...(await source.visibleRows(new Set([FETCH])))].map((i) => rows[i]);
     expect(instructions).toHaveLength(943);
-    expect(instructions.every((r) => r.type === 0)).toBe(true);
+    expect(instructions.every((r) => r.type === INSTRUCTION)).toBe(true);
     // Packets come in fetch order, so their instructions do too.
     expect(instructions.map((r) => r.id)).toEqual(instructions.map((r) => r.id).sort((a, b) => a - b));
     expect(await source.visibleRows(new Set())).toHaveLength(2080);
@@ -150,12 +153,12 @@ describe.skipIf(!haveFixtures)('Controller hiding a type', () => {
 
   it('closes up the rows of a hidden type and opens them again', async () => {
     const c = await open();
-    await c.toggleType(1);
+    await c.toggleType(FETCH);
     expect(c.shownCount).toBe(943);
-    expect((await c.rowAsync(c.rowAtPlace(0))).type).toBe(0);
+    expect((await c.rowAsync(c.rowAtPlace(0))).type).toBe(INSTRUCTION);
     expect(c.placeOf(0)).toBe(-1);
     expect(c.rowAtY(RULER + 1)).toBe(c.rowAtPlace(0));
-    await c.toggleType(1);
+    await c.toggleType(FETCH);
     expect(c.shownCount).toBe(2080);
     expect(c.placeOf(0)).toBe(0);
   });
@@ -164,19 +167,19 @@ describe.skipIf(!haveFixtures)('Controller hiding a type', () => {
     const c = await open();
     c.y0 = 600 * c.rowH;
     let instruction = c.rowAtY(RULER + 10 * c.rowH + 1)!;
-    while ((await c.rowAsync(instruction)).type !== 0) instruction++;
+    while ((await c.rowAsync(instruction)).type !== INSTRUCTION) instruction++;
     c.select(instruction);
     const y = c.rowY(instruction);
-    await c.toggleType(1);
+    await c.toggleType(FETCH);
     expect(c.rowY(instruction)).toBe(y);
-    await c.toggleType(1);
+    await c.toggleType(FETCH);
     expect(c.rowY(instruction)).toBe(y);
   });
 
   it('drops a selection whose type is hidden, and moves the selection over rows shown', async () => {
     const c = await open();
     c.select(0);
-    await c.toggleType(1);
+    await c.toggleType(FETCH);
     expect(c.selected).toBeNull();
     c.select(c.rowAtPlace(3));
     c.moveSelection(1);
@@ -192,9 +195,9 @@ describe.skipIf(!haveFixtures)('Controller panning to a selected object’s star
     const before = c.x0;
     await c.toSelectedEdge('end');
     expect(c.x0).toBe(before);
-    const i = (await c.source.find(97, 1))!;
+    const i = (await c.source.find(97, FETCH))!;
     const packet = await c.rowAsync(i);
-    expect(packet.segments.map((s) => c.source.info.types[1].stages[s.stage])).toContain('Miss');
+    expect(packet.segments.map((s) => c.source.info.types[FETCH].stages[s.stage])).toContain('Miss');
     c.select(i);
     await c.toSelectedEdge('end');
     expect(c.xOf(packet.end! - 1)).toBeCloseTo(c.gutterW + (c.plotW * 2) / 3);
