@@ -166,6 +166,11 @@ export function drawWaterfall(ctx: CanvasRenderingContext2D, c: Controller, th: 
         ctx.fillRect(0, c.rowY(r.index), gx, rowH);
       }
     }
+    // Rows a search matches: a lavender mark at the column's left edge, which stays when rows are too small for text.
+    if (c.search) {
+      ctx.fillStyle = th.accent;
+      for (const r of rows) if (c.search.rows.has(r.index)) ctx.fillRect(0, c.rowY(r.index) + padOf(rowH), 3, Math.max(1, rowH - 2 * padOf(rowH)));
+    }
     if (rowH >= LABEL_ROWS) drawLabels(ctx, c, th, rows);
     ctx.restore();
     ctx.fillStyle = th.surface0;

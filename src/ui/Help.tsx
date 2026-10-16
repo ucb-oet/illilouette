@@ -2,8 +2,9 @@
 import { useEffect, useRef } from 'preact/hooks';
 import { Controller, useController } from './controller';
 
-/** Each group's inputs, as key caps, and what they do. Letters are as typed: a capital takes Shift. */
-const GROUPS: { name: string; keys: [string[], string][] }[] = [
+/** Each group's inputs, as key caps, and what they do, with example texts where the group takes text. Letters are as
+ *  typed: a capital takes Shift. */
+const GROUPS: { name: string; keys: [string[], string][]; examples?: [string, string][] }[] = [
   {
     name: 'Move',
     keys: [
@@ -11,7 +12,22 @@ const GROUPS: { name: string; keys: [string[], string][] }[] = [
       [['Scroll'], 'Move through rows; sideways or with Shift, pan time'],
       [['Drag'], 'Move'],
       [['Timeline bar'], 'Click or drag to move there'],
-      [['/'], 'Jump to a cycle (41440) or an object (#3454, instruction#3454)'],
+    ],
+  },
+  {
+    name: 'Search',
+    keys: [
+      [['/'], 'Jump to a cycle (41440) or an object (#3454), or search'],
+      [['Tab'], 'Complete a type, field, event, or value'],
+      [['Enter'], 'Go to the next match; with Shift, the previous'],
+      [['n', 'N'], 'Next or previous match'],
+    ],
+    examples: [
+      ['csrr', 'labels that contain it'],
+      ['instruction.pc=0x80000050', 'an object’s own field'],
+      ['instruction.mark_replay.cause=cache_nack', 'a field of one of its events'],
+      ['instruction.flush', 'objects with that event'],
+      ['*.pc=0x80000050', '* for any type or event'],
     ],
   },
   {
@@ -86,6 +102,15 @@ export function Help({ c }: { c: Controller }) {
                   </div>
                 ))}
               </dl>
+              {g.examples && (
+                <ul class="examples">
+                  {g.examples.map(([text, finds]) => (
+                    <li key={text}>
+                      <code>{text}</code> <span>{finds}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </section>
           ))}
         </div>

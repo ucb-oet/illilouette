@@ -2,6 +2,7 @@
 // subscribe to it. Rows come from the source in chunks and are cached here.
 import { useEffect, useState } from 'preact/hooks';
 import { fmt, objectName } from '../model/present';
+import { parseQuery, type Match, type TypeWords } from '../model/search';
 import type { RowView, Source } from '../model/source';
 import { CHAR_EM, labelColumns, labelFontSize } from './labels';
 
@@ -79,6 +80,11 @@ export class Controller {
   naming: number | null = null;
   /** Whether the list of keys is open. */
   helpOpen = false;
+  /** The search in the jump box: its text, what is wrong with it if anything, its matches in time order, the rows they
+   *  are on, and how many matching objects are of hidden types. Null while the box holds no search. */
+  search: { text: string; error: string | null; matches: Match[]; rows: Set<number>; skipped: number } | null = null;
+  /** The file's names for searches, once read. */
+  words: TypeWords[] | null = null;
   /** A short note for the status bar, such as why a jump did nothing; it stays until the next key, click, or wheel. */
   notice = '';
 
@@ -90,6 +96,8 @@ export class Controller {
   private toggles = 0;
   /** Counts moves from the timeline bar, likewise. */
   private moves = 0;
+  /** Counts searches, likewise. */
+  private searches = 0;
 
   private markSized!: () => void;
   /** Resolves once the canvas has its size, which the view a file opens with depends on. */
@@ -424,6 +432,76 @@ export class Controller {
     }
     this.clamp();
     this.changed();
+    // A search leaves out hidden types, so its matches change with them.
+    if (this.search && !this.search.error) await this.setSearch(this.search.text);
+  }
+
+  /** Reads the file's names for searches, once. */
+  async loadWords(): Promise<TypeWords[]> {
+    if (!this.words) {
+      this.words = await this.source.words();
+      this.changed();
+    }
+    return this.words;
+  }
+
+  /** Runs a search, as it is typed, without moving the view. */
+  async setSearch(text: string): Promise<void> {
+    const n = ++this.searches;
+    const query = parseQuery(text, await this.loadWords());
+    const result = 'error' in query ? { matches: [], skipped: 0 } : await this.source.search(query, this.hiddenTypes);
+    if (n !== this.searches) return;
+    this.search = { text, error: 'error' in query ? query.error : null, ...result, rows: new Set(result.matches.map((m) => m.row)) };
+    this.changed();
+  }
+
+  clearSearch(): void {
+    ++this.searches;
+    this.search = null;
+    this.changed();
+  }
+
+  /** The match the selection is on, as an index into the search's matches, or -1. */
+  get matchAt(): number {
+    const s = this.search;
+    return s ? s.matches.findIndex((m) => m.row === this.selected && m.cycle === this.column) : -1;
+  }
+
+  /** Goes to the next or previous match, in time order, from the selected object and cycle, or else from a third of
+   *  the way into the view, as vim's n and N do; past the last, it goes round to the first. Says why when there is
+   *  nowhere to go, and returns whether it went. */
+  async nextMatch(step: 1 | -1): Promise<boolean> {
+    const s = this.search;
+    if (!s) {
+      this.say('Nothing is searched: press / and type a search, such as csrr or instruction.flush.');
+      return false;
+    }
+    if (s.error) {
+      this.say(s.error);
+      return false;
+    }
+    if (!s.matches.length) {
+      this.say(`Nothing matches ${s.text}${s.skipped ? `, apart from ${s.skipped} objects of hidden types` : ''}.`);
+      return false;
+    }
+    const cycle = this.column ?? Math.floor(this.x0 + this.visibleCycles / 3);
+    const row = this.selected ?? -1;
+    const after = (m: Match) => m.cycle > cycle || (m.cycle === cycle && m.row > row);
+    let k = -1;
+    if (step > 0) k = s.matches.findIndex(after);
+    else for (let j = s.matches.length - 1; j >= 0 && k < 0; j--) if (!after(s.matches[j]) && !(s.matches[j].cycle === cycle && s.matches[j].row === row)) k = j;
+    if (k < 0) {
+      k = step > 0 ? 0 : s.matches.length - 1;
+      if (s.matches.length > 1) this.say(step > 0 ? 'Past the last match; back to the first.' : 'Before the first match; on to the last.');
+    }
+    const m = s.matches[k];
+    this.select(m.row);
+    this.column = m.cycle;
+    this.y0 = this.placeOf(m.row) * this.rowH - (this.height - RULER) / 3;
+    this.x0 = m.cycle - this.visibleCycles / 3;
+    this.clamp();
+    this.changed();
+    return true;
   }
 
   /** Puts a cursor on an edge, by default the one where the selected cycle starts, as vim's i inserts before the

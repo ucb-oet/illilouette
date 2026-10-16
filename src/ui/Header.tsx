@@ -1,6 +1,8 @@
-// The header: the file's name and range, the jump box, the type and arrow toggles, the palette, and opening another file.
+// The header: the file's name and range, the jump box, which also searches, the type and arrow toggles, the palette,
+// and opening another file.
 import { useRef, useState } from 'preact/hooks';
 import { fmt } from '../model/present';
+import { suggest, type Suggestion } from '../model/search';
 import { Controller, useController } from './controller';
 import { applyThemeChoice, loadThemeChoice, type ThemeChoice } from './theme';
 
@@ -9,26 +11,61 @@ export function Header({ c, onOpen }: { c: Controller; onOpen: (file: File) => P
   const info = c.source.info;
   const [query, setQuery] = useState('');
   const [theme, setTheme] = useState<ThemeChoice>(loadThemeChoice());
+  const [focused, setFocused] = useState(false);
+  /** The completion picked with the arrow keys, or -1. */
+  const [picked, setPicked] = useState(-1);
   const box = useRef<HTMLInputElement>(null);
 
-  const jump = async (ev: Event) => {
-    ev.preventDefault();
+  /** A cycle or an object to jump to, rather than a search. */
+  const isJump = (q: string) => /^\d[\d,]*$/.test(q) || /^([A-Za-z_][\w.]*)?#\d+$/.test(q);
+  const suggestions: Suggestion[] = focused && c.words && !isJump(query.trim()) ? suggest(query, c.words) : [];
+
+  const edit = (text: string) => {
+    setQuery(text);
+    setPicked(-1);
+    const q = text.trim();
+    if (!q || isJump(q)) c.clearSearch();
+    else void c.setSearch(q);
+  };
+  const go = async (back: boolean) => {
     const q = query.trim();
     let m: RegExpMatchArray | null;
     let landed = false;
+    if (!q) return;
     if (/^\d[\d,]*$/.test(q)) {
       await c.jumpToCycle(Number(q.replace(/,/g, '')));
       landed = true;
     } else if ((m = q.match(/^([A-Za-z_][\w.]*)?#(\d+)$/))) {
       landed = await c.jumpToObject(Number(m[2]), m[1]);
     } else {
-      // TODO: queries in the trigger syntax of +eventtrace_start, such as event:instruction.decode,pc=0x80000148,
-      // repeated forward with Enter and backward with Shift+Enter.
-      c.say('Type a cycle, such as 41440, or an object, such as #3454.');
+      if (c.search?.text !== q) await c.setSearch(q);
+      landed = await c.nextMatch(back ? -1 : 1);
     }
-    // Once a jump lands, keys move the view again; a jump that found nothing leaves the box to correct.
+    // Once a jump lands, keys move the view again, n and N among them; one that found nothing leaves the box to correct.
     if (landed) box.current?.blur();
   };
+  const onKeyDown = (ev: KeyboardEvent) => {
+    const n = suggestions.length;
+    if (n && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
+      ev.preventDefault();
+      setPicked((p) => (ev.key === 'ArrowDown' ? (p + 1) % n : (p - 1 + n) % n));
+    } else if (n && ev.key === 'Tab' && !ev.shiftKey) {
+      ev.preventDefault();
+      edit(suggestions[Math.max(0, picked)].text);
+    } else if (ev.key === 'Enter') {
+      ev.preventDefault();
+      if (picked >= 0 && picked < n) edit(suggestions[picked].text);
+      else void go(ev.shiftKey);
+    } else if (ev.key === 'Escape' && picked >= 0) {
+      // Esc first lets go of a picked completion, then of the box.
+      ev.stopPropagation();
+      setPicked(-1);
+    }
+  };
+  const s = c.search;
+  const at = c.matchAt;
+  const count = !s || s.error ? '' : !s.matches.length ? 'no matches' : at >= 0 ? `${fmt(at + 1)} of ${fmt(s.matches.length)}` : `${fmt(s.matches.length)} ${s.matches.length === 1 ? 'match' : 'matches'}`;
+  const skipped = s && !s.error && s.skipped ? ` · ${fmt(s.skipped)} hidden` : '';
   const choose = (t: ThemeChoice) => {
     setTheme(t);
     applyThemeChoice(t);
@@ -42,18 +79,56 @@ export function Header({ c, onOpen }: { c: Controller; onOpen: (file: File) => P
           cycles {fmt(info.firstCycle)}–{fmt(info.lastCycle)} · {fmt(info.rowCount)} objects
         </p>
       </div>
-      <form class="jump" onSubmit={jump}>
+      <form class="jump" onSubmit={(e) => e.preventDefault()}>
         <input
           id="jump"
           ref={box}
           type="text"
           value={query}
-          onInput={(e) => setQuery((e.target as HTMLInputElement).value)}
-          placeholder="Jump to a cycle or #id"
-          aria-label="Jump to a cycle or an object"
+          onInput={(e) => edit((e.target as HTMLInputElement).value)}
+          // Room on the right for the count, at its monospace width.
+          style={{ paddingRight: count || skipped ? `${Math.ceil((count + skipped).length * 7 + 20)}px` : undefined }}
+          onKeyDown={onKeyDown}
+          onFocus={() => {
+            setFocused(true);
+            void c.loadWords();
+          }}
+          onBlur={() => {
+            setFocused(false);
+            setPicked(-1);
+          }}
+          placeholder="Cycle, #id, or search"
+          aria-label="Jump to a cycle or an object, or search"
+          aria-autocomplete="list"
+          aria-controls="jump-suggestions"
           spellcheck={false}
           autocomplete="off"
         />
+        {(count || skipped) && (
+          <span class="count" aria-live="polite">
+            {count}
+            {skipped}
+          </span>
+        )}
+        {suggestions.length > 0 && (
+          <ul class="suggestions" id="jump-suggestions" role="listbox">
+            {suggestions.map((g, k) => (
+              <li
+                key={g.text}
+                role="option"
+                aria-selected={k === picked}
+                // Taken on mousedown, before the box loses focus.
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  edit(g.text);
+                }}
+              >
+                <span>{g.text}</span>
+                <small>{g.kind}</small>
+              </li>
+            ))}
+          </ul>
+        )}
       </form>
       <div class="chips" role="group" aria-label="Show or hide">
         {info.types.slice(0, 9).map((t, i) => (

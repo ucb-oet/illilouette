@@ -1,5 +1,7 @@
 // A source over a waterfall file loaded whole in the browser.
 import type { Row, Waterfall } from '../file/waterfall';
+import { shortName } from './present';
+import { labelHolds, MAX_OFFERED_VALUES, sameValue, type FieldWords, type Match, type Query, type SearchResult, type TypeWords } from './search';
 import type { Info, Referrer, RowView, Source, TypeSummary } from './source';
 
 export class MemorySource implements Source {
@@ -10,6 +12,7 @@ export class MemorySource implements Source {
   private readonly laterStart: Float64Array;
   private readonly byId = new Map<string, number>();
   private referrersOf: Map<number, Referrer[]> | null = null;
+  private wordsOf: TypeWords[] | null = null;
 
   constructor(private readonly w: Waterfall) {
     this.views = new Array(w.rows.length);
@@ -102,6 +105,71 @@ export class MemorySource implements Source {
       this.referrersOf = map;
     }
     return this.referrersOf.get(row) ?? [];
+  }
+
+  async search(q: Query, hidden: ReadonlySet<number>): Promise<SearchResult> {
+    const w = this.w;
+    const t = w.strings;
+    const typeNames = this.info.types.map((x) => x.name.toLowerCase());
+    const matches: Match[] = [];
+    let skipped = 0;
+    w.rows.forEach((r, i) => {
+      const first = r.events.length ? r.events[0].cycle : this.starts[i];
+      let cycle: number | null = null;
+      if (q.kind === 'label') {
+        if (labelHolds(r.label.map((s) => t[s]), q.text)) cycle = first;
+      } else if (q.type !== '*' && typeNames[r.type] !== q.type.toLowerCase()) {
+        return;
+      } else if (q.kind === 'field') {
+        if (r.fields.some((f) => t[f.name].toLowerCase() === q.field.toLowerCase() && sameValue(t[f.text], q.value))) cycle = first;
+      } else {
+        const event = q.event.toLowerCase();
+        const field = q.field?.toLowerCase();
+        for (const e of r.events) {
+          if (event !== '*' && shortName(t[w.sites[e.site].event], this.info.types[r.type].name).toLowerCase() !== event) continue;
+          if (field !== undefined && !e.fields.some((f) => t[f.name].toLowerCase() === field && sameValue(t[f.text], q.value!))) continue;
+          cycle = e.cycle;
+          break;
+        }
+      }
+      if (cycle === null) return;
+      if (hidden.has(r.type)) skipped++;
+      else matches.push({ row: i, cycle });
+    });
+    matches.sort((a, b) => a.cycle - b.cycle || a.row - b.row);
+    return { matches, skipped };
+  }
+
+  async words(): Promise<TypeWords[]> {
+    if (this.wordsOf) return this.wordsOf;
+    const w = this.w;
+    const t = w.strings;
+    // Each field's distinct values, until there are too many to offer.
+    type Values = Map<string, Set<string> | null>;
+    const note = (fields: Values, name: string, text: string) => {
+      if (!fields.has(name)) fields.set(name, new Set());
+      const values = fields.get(name);
+      if (!values) return;
+      values.add(text);
+      if (values.size > MAX_OFFERED_VALUES) fields.set(name, null);
+    };
+    const own = this.info.types.map((): Values => new Map());
+    const events = this.info.types.map(() => new Map<string, Values>());
+    for (const r of w.rows) {
+      for (const f of r.fields) note(own[r.type], t[f.name], t[f.text]);
+      for (const e of r.events) {
+        const name = shortName(t[w.sites[e.site].event], this.info.types[r.type].name);
+        if (!events[r.type].has(name)) events[r.type].set(name, new Map());
+        for (const f of e.fields) note(events[r.type].get(name)!, t[f.name], t[f.text]);
+      }
+    }
+    const listed = (fields: Values): FieldWords[] => [...fields].map(([name, values]) => ({ name, values: values ? [...values] : null }));
+    this.wordsOf = this.info.types.map((type, ti) => ({
+      name: type.name,
+      fields: listed(own[ti]),
+      events: [...events[ti]].map(([name, fields]) => ({ name, fields: listed(fields) })),
+    }));
+    return this.wordsOf;
   }
 
   private view(i: number): RowView {

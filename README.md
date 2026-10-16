@@ -55,12 +55,29 @@ Letters are as typed: a capital takes Shift.
 | `I` / `A` | Put a cursor at the selected object's start, or after its end, as vim's `I` and `A` insert at the start and end of the line; selects its first or last event's cycle, as `0` and `$` do |
 | `x` | Remove the cursor at the selected cycle: on the edge where it starts, or else the edge after it |
 | `r` | Show or hide arrows for everything on screen; none show once zoomed out a step past where the label column loses its text or the cells their letters |
-| `/` | Jump to a cycle (`41440`) or an object (`#3454`, `instruction#3454`); once it lands, keys move the view again |
+| `/` | Jump to a cycle (`41440`) or an object (`#3454`, `instruction#3454`), or search; once it lands, keys move the view again |
+| `n` / `N` | Go to the next or previous match of the search |
 | `?` | List these keys |
 
 Rows come in the file's order. An object with a parent sits under it, such as a Rocket instruction under the fetch packet it decoded from, its type name indented; hiding the parent's type takes the indent away.
 
 How much a row shows follows the zoom: lettered cells up close, one run per stage in the middle, solid rows far out. One object type is in focus and drawn in full; every other type keeps only the bar along the bottom of its cells, so that packets and instructions, say, tell apart. Hatched cycles, or a dashed bar in a type not in focus, are cycles in which an object was held in its stage. A dot marks an event that describes an object without moving or ending it, such as a stall. A red cap marks an object that left without its type's normal end, such as a squashed instruction.
+
+## Searching
+
+Type a search in the jump box. It takes one term, with no patterns to learn:
+
+| Search | Finds | Lands on |
+|---|---|---|
+| `csrr`, `sw gp`, `0x80000050` | Objects whose label contains the text, ignoring case; a `0x` number matches the label's numbers by value | The object's first event |
+| `instruction.pc=0x80000050` | Objects whose own field has the value | The object's first event |
+| `instruction.mark_replay.cause=cache_nack` | Objects with that event, its field having the value | That event |
+| `instruction.flush` | Objects with that event, which covers how objects ended | That event |
+| `*.pc=…`, `instruction.*.cause=…` | `*` stands for any one type or event | |
+
+Values match whole: numbers by value, so `0x80000050` matches `0x0080000050`; causes and other fixed choices by name; objects as `type#id`. Tab completes the file's own types, fields, events, and the values a field takes when they are few. A name the file does not have gets a message listing the ones it does.
+
+The box counts the matches as you type. Enter goes to the first match after the selection, selecting the object and the cycle, and hands the keys back; `n` and `N` then go on through the matches, in time order. Matching rows are marked at the left of the label column and on the timeline bar. Objects of hidden types are left out, and the count says how many. Emptying the box ends the search.
 
 ## Layout
 

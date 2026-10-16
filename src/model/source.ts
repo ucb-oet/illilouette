@@ -2,6 +2,7 @@
 // today, and from a server for large files later.
 // TODO: a server-backed source with a version handshake, for files too large to load whole.
 import type { Effect } from '../file/waterfall';
+import type { Query, SearchResult, TypeWords } from './search';
 
 export interface Info {
   title: string;
@@ -99,4 +100,8 @@ export interface Source {
   find(id: number, type?: number): Promise<number | null>;
   /** Events of other rows that name this one. */
   referrers(row: number): Promise<Referrer[]>;
+  /** The objects a search matches, leaving out those of hidden types. */
+  search(query: Query, hidden: ReadonlySet<number>): Promise<SearchResult>;
+  /** The names a search can use: each type's own fields, and its events and their fields, with values when few. */
+  words(): Promise<TypeWords[]>;
 }

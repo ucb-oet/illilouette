@@ -47,6 +47,17 @@ export function TimelineBar({ c }: { c: Controller }) {
       ctx.strokeStyle = th.accent;
       ctx.lineWidth = 1.5;
       ctx.stroke();
+      // A search's matches, as short ticks below the line, one per pixel at most, so that clusters show.
+      if (c.search) {
+        ctx.fillStyle = th.accent;
+        let last = -Infinity;
+        for (const m of c.search.matches) {
+          const x = Math.round(PAD + ((m.cycle - firstCycle) / span) * w);
+          if (x === last) continue;
+          last = x;
+          ctx.fillRect(x, mid + 3, 1, H / 2 - 7);
+        }
+      }
       // Cursors, so that a distant one can be clicked back to.
       ctx.fillStyle = th.text;
       for (const k of c.cursors) ctx.fillRect(PAD + ((k.edge - firstCycle) / span) * w - 0.75, 7, 1.5, H - 14);
