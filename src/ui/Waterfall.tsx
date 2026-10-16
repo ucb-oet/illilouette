@@ -100,13 +100,16 @@ export function Waterfall({ c }: { c: Controller }) {
       tip.current!.hidden = true;
       c.changed();
     };
-    // Wheel: scroll moves through rows; Shift or a sideways swipe pans time; pinch or Ctrl zooms time only.
+    // Wheel: scroll moves through rows; Shift or a sideways swipe pans time. Ctrl or Cmd, or a pinch, zooms time, and
+    // with Shift, rows: Shift switches the axis, as Q and E zoom rows where q and e zoom time.
     const onWheel = (ev: WheelEvent) => {
       ev.preventDefault();
       tip.current!.hidden = true;
-      const { x } = local(ev);
+      const { x, y } = local(ev);
       const scale = ev.deltaMode === 1 ? 16 : 1;
-      if (ev.ctrlKey || ev.metaKey) c.zoomTime(x, Math.exp(-ev.deltaY * scale * 0.0025));
+      // Some systems turn a wheel with Shift held into a sideways scroll.
+      if ((ev.ctrlKey || ev.metaKey) && ev.shiftKey) c.zoomRows(Math.exp(-(ev.deltaY || ev.deltaX) * scale * 0.0025), y);
+      else if (ev.ctrlKey || ev.metaKey) c.zoomTime(x, Math.exp(-ev.deltaY * scale * 0.0025));
       else if (ev.shiftKey) c.panTime((ev.deltaY || ev.deltaX) * scale / c.cellW);
       else if (Math.abs(ev.deltaX) > Math.abs(ev.deltaY)) c.panTime(ev.deltaX * scale / c.cellW);
       else c.scrollRows(ev.deltaY * scale);

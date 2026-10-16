@@ -19,7 +19,8 @@ const GROUPS: { name: string; keys: [string[], string][] }[] = [
     keys: [
       [['q', 'e'], 'Zoom time out, in'],
       [['Q', 'E'], 'Zoom rows out, in'],
-      [['Ctrl', 'Scroll'], 'Zoom time; so does a pinch'],
+      [['Ctrl', 'Scroll'], 'Zoom time; so do Cmd and a pinch'],
+      [['Ctrl', 'Shift', 'Scroll'], 'Zoom rows; so does Shift with a pinch'],
     ],
   },
   {

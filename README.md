@@ -38,7 +38,7 @@ Letters are as typed: a capital takes Shift.
 |---|---|
 | Scroll / two-finger swipe | Move through rows; sideways or with Shift, pan time |
 | Click or drag the timeline bar | Move there; rows follow to the first object in the new range |
-| Pinch, Ctrl+scroll | Zoom time only |
+| Pinch, Ctrl or Cmd+scroll | Zoom time; with Shift held, zoom rows |
 | `q` / `e` | Zoom time out / in |
 | `Q` / `E` | Zoom rows |
 | `w` `a` `s` `d` | Move up, left, down, right |
