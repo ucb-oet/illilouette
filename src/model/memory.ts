@@ -2,7 +2,7 @@
 import type { Row, Waterfall } from '../file/waterfall';
 import { shortName } from './present';
 import { labelHolds, MAX_OFFERED_VALUES, sameValue, type FieldWords, type Match, type Query, type SearchResult, type TypeWords } from './search';
-import type { Info, Referrer, RowView, Source, TypeSummary } from './source';
+import type { Info, Referrer, RowFilter, RowView, Source, TypeSummary } from './source';
 
 export class MemorySource implements Source {
   readonly info: Info;
@@ -71,11 +71,11 @@ export class MemorySource implements Source {
     return Math.max(0, i);
   }
 
-  async visibleRows(hidden: ReadonlySet<number>): Promise<Uint32Array> {
+  async visibleRows(filter: RowFilter): Promise<Uint32Array> {
     const rows = this.w.rows;
     const out = new Uint32Array(rows.length);
     let n = 0;
-    for (let i = 0; i < rows.length; i++) if (!hidden.has(rows[i].type)) out[n++] = i;
+    for (let i = 0; i < rows.length; i++) if (!hides(filter, rows[i])) out[n++] = i;
     return out.slice(0, n);
   }
 
@@ -107,7 +107,7 @@ export class MemorySource implements Source {
     return this.referrersOf.get(row) ?? [];
   }
 
-  async search(q: Query, hidden: ReadonlySet<number>): Promise<SearchResult> {
+  async search(q: Query, filter: RowFilter): Promise<SearchResult> {
     const w = this.w;
     const t = w.strings;
     const typeNames = this.info.types.map((x) => x.name.toLowerCase());
@@ -133,7 +133,7 @@ export class MemorySource implements Source {
         }
       }
       if (cycle === null) return;
-      if (hidden.has(r.type)) skipped++;
+      if (hides(filter, r)) skipped++;
       else matches.push({ row: i, cycle });
     });
     matches.sort((a, b) => a.cycle - b.cycle || a.row - b.row);
@@ -206,6 +206,11 @@ export class MemorySource implements Source {
     this.views[i] = view;
     return view;
   }
+}
+
+/** Whether a filter hides a row: by its type, or as an object that ended without its type's normal end. */
+function hides(filter: RowFilter, r: Row): boolean {
+  return filter.types.has(r.type) || (filter.abnormal && r.end !== null && !r.normalEnd);
 }
 
 function ancestorTypes(w: Waterfall, r: Row): number[] {

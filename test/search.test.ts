@@ -31,7 +31,7 @@ describe.skipIf(!haveFixtures)('Searching rv64ui-p-add', () => {
   const run = async (text: string, hidden: number[] = []) => {
     const q = parseQuery(text, await source.words());
     if ('error' in q) throw new Error(q.error);
-    return source.search(q as Query, new Set(hidden));
+    return source.search(q as Query, { types: new Set(hidden), abnormal: false });
   };
   const error = async (text: string) => {
     const q = parseQuery(text, await source.words());

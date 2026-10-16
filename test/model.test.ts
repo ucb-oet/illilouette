@@ -113,12 +113,12 @@ describe.skipIf(!haveFixtures)('MemorySource on Rocket, with instructions under 
 
   it('lists the rows of the types shown, in file order', async () => {
     const rows = await all();
-    const instructions = [...(await source.visibleRows(new Set([FETCH])))].map((i) => rows[i]);
+    const instructions = [...(await source.visibleRows({ types: new Set([FETCH]), abnormal: false }))].map((i) => rows[i]);
     expect(instructions).toHaveLength(943);
     expect(instructions.every((r) => r.type === INSTRUCTION)).toBe(true);
     // Packets come in fetch order, so their instructions do too.
     expect(instructions.map((r) => r.id)).toEqual(instructions.map((r) => r.id).sort((a, b) => a - b));
-    expect(await source.visibleRows(new Set())).toHaveLength(2080);
+    expect(await source.visibleRows({ types: new Set(), abnormal: false })).toHaveLength(2080);
   });
 
   it('finds a row alive at a cycle near the first one, though rows under parents start out of order', async () => {
@@ -291,6 +291,33 @@ describe.skipIf(!haveFixtures)('Cursors', () => {
     expect(c.column).toBe(1514);
     c.deleteCursor();
     expect(c.cursors.map((k) => k.edge)).toEqual([1511]);
+  });
+});
+
+describe.skipIf(!haveFixtures)('Hiding objects that ended abnormally', () => {
+  it('closes up their rows, clears a selection of one, and leaves them out of searches', async () => {
+    const c = new Controller(load('rocket-rv64ui-p-add'));
+    c.setSize(1200, 800);
+    await c.home();
+    // instruction#3 ended by a flush.
+    const flushed = (await c.source.find(3, INSTRUCTION))!;
+    c.select(flushed);
+    await c.setSearch('instruction.flush');
+    expect(c.search!.matches.length).toBe(53);
+    await c.toggleAbnormal();
+    // 168 killed packets, and 53 flushed, 32 squashed, 8 replayed, and 2 trapped instructions.
+    expect(c.hiddenCount).toBe(263);
+    expect(c.shownCount).toBe(2080 - 263);
+    expect(c.placeOf(flushed)).toBe(-1);
+    expect(c.selected).toBe(null);
+    expect([c.search!.matches.length, c.search!.skipped]).toEqual([0, 53]);
+    c.select(flushed);
+    await c.focusSelected();
+    expect(c.notice).toBe('instruction#3 ended by flush, and objects that ended abnormally are hidden; press o to show them.');
+    await c.toggleType(FETCH);
+    expect(c.hiddenCount).toBe(1137 + 95);
+    await c.toggleAbnormal();
+    expect(c.hiddenCount).toBe(1137);
   });
 });
 

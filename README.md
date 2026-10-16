@@ -57,6 +57,7 @@ Letters are as typed: a capital takes Shift.
 | `r` | Show or hide arrows for everything on screen; none show once zoomed out a step past where the label column loses its text or the cells their letters |
 | `/` | Jump to a cycle (`41440`) or an object (`#3454`, `instruction#3454`), or search; once it lands, keys move the view again |
 | `n` / `N` | Go to the next or previous match of the search |
+| `o` | Open the view panel: types shown and in focus, objects that ended abnormally, arrows. It leaves the waterfall usable; anything hidden shows as a count in the header and a dot on its button |
 | `?` | List these keys |
 
 Rows come in the file's order. An object with a parent sits under it, such as a Rocket instruction under the fetch packet it decoded from, its type name indented; hiding the parent's type takes the indent away.

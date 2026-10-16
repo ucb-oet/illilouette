@@ -88,20 +88,26 @@ export interface Referrer {
   field: string;
 }
 
+/** Which objects are hidden: those of some types, and those that ended without their type's normal end. */
+export interface RowFilter {
+  types: ReadonlySet<number>;
+  abnormal: boolean;
+}
+
 export interface Source {
   readonly info: Info;
   /** Rows first through last - 1. */
   rows(first: number, last: number): Promise<RowView[]>;
   /** A row alive at a cycle, or starting just after it, near the first such row. */
   rowAt(cycle: number): Promise<number>;
-  /** The rows whose types are not hidden, in order. */
-  visibleRows(hidden: ReadonlySet<number>): Promise<Uint32Array>;
+  /** The rows a filter does not hide, in order. */
+  visibleRows(filter: RowFilter): Promise<Uint32Array>;
   /** The row of an object, by ID and, when several types share IDs, type. */
   find(id: number, type?: number): Promise<number | null>;
   /** Events of other rows that name this one. */
   referrers(row: number): Promise<Referrer[]>;
-  /** The objects a search matches, leaving out those of hidden types. */
-  search(query: Query, hidden: ReadonlySet<number>): Promise<SearchResult>;
+  /** The objects a search matches, leaving out those a filter hides. */
+  search(query: Query, filter: RowFilter): Promise<SearchResult>;
   /** The names a search can use: each type's own fields, and its events and their fields, with values when few. */
   words(): Promise<TypeWords[]>;
 }

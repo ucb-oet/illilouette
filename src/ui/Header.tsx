@@ -5,6 +5,7 @@ import { fmt } from '../model/present';
 import { suggest, type Suggestion } from '../model/search';
 import { Controller, useController } from './controller';
 import { applyThemeChoice, isDark, loadThemeChoice, onThemeChange, type ThemeChoice } from './theme';
+import { ViewPanel } from './ViewPanel';
 
 export function Header({ c, onOpen }: { c: Controller; onOpen: (file: File) => Promise<void> }) {
   useController(c);
@@ -16,6 +17,7 @@ export function Header({ c, onOpen }: { c: Controller; onOpen: (file: File) => P
   const [picked, setPicked] = useState(-1);
   const box = useRef<HTMLInputElement>(null);
   const list = useRef<HTMLUListElement>(null);
+  const viewButton = useRef<HTMLDivElement>(null);
   // Keep the picked completion in view as the arrow keys move past the list's visible part.
   useEffect(() => {
     if (picked >= 0) list.current?.children[picked]?.scrollIntoView({ block: 'nearest' });
@@ -86,6 +88,7 @@ export function Header({ c, onOpen }: { c: Controller; onOpen: (file: File) => P
         <h1>{info.title}</h1>
         <p>
           cycles {fmt(info.firstCycle)}–{fmt(info.lastCycle)} · {fmt(info.rowCount)} objects
+          {c.hiddenCount > 0 && ` · ${fmt(c.hiddenCount)} hidden`}
         </p>
       </div>
       <form class="jump" onSubmit={(e) => e.preventDefault()}>
@@ -159,6 +162,21 @@ export function Header({ c, onOpen }: { c: Controller; onOpen: (file: File) => P
           <kbd>r</kbd>Arrows
         </button>
       </div>
+      <div class="view-anchor" ref={viewButton}>
+        <button
+          type="button"
+          class="plain icon"
+          aria-expanded={c.viewOpen}
+          title={c.hiddenCount ? `View: ${fmt(c.hiddenCount)} objects hidden (o)` : 'View (o)'}
+          aria-label="View"
+          onClick={() => c.toggleView()}
+        >
+          <Sliders />
+          {/* While anything is hidden, so that a filter is not forgotten. */}
+          {c.hiddenCount > 0 && <i class="dot" />}
+        </button>
+        <ViewPanel c={c} anchor={viewButton} />
+      </div>
       <button
         type="button"
         class="plain icon"
@@ -184,6 +202,16 @@ export function Header({ c, onOpen }: { c: Controller; onOpen: (file: File) => P
         />
       </label>
     </header>
+  );
+}
+
+function Sliders() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
+      <path d="M2.5 4.5h6M11.5 4.5h2M2.5 11.5h2M7.5 11.5h6" />
+      <circle cx="10" cy="4.5" r="1.5" />
+      <circle cx="6" cy="11.5" r="1.5" />
+    </svg>
   );
 }
 

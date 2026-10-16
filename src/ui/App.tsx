@@ -95,7 +95,8 @@ function Viewer({ source, onOpen }: { source: MemorySource; onOpen: (f: File) =>
     void c.home();
     const onKey = (ev: KeyboardEvent) => {
       const target = ev.target as HTMLElement | null;
-      if (target?.closest('input, textarea')) {
+      // Keys go to boxes text is typed in; a checkbox in the view panel lets them through.
+      if (target?.closest('input[type="text"], input:not([type]), textarea')) {
         if (ev.key === 'Escape') target.blur();
         return;
       }
@@ -126,10 +127,12 @@ function Viewer({ source, onOpen }: { source: MemorySource; onOpen: (f: File) =>
       else if (k === 'x') c.deleteCursor();
       else if (k === '0') void c.toSelectedEdge('start');
       else if (k === '$') void c.toSelectedEdge('end');
+      else if (k === 'Escape' && c.viewOpen) c.toggleView();
       else if (k === 'Escape') {
         c.select(null);
         c.selectColumn(null);
       }
+      else if (k === 'o') c.toggleView();
       // The selection moves as vim's cursor does: by rows, keeping its column, and by cycles.
       else if (k === 'ArrowDown' || k === 'j') c.moveSelection(1);
       else if (k === 'ArrowUp' || k === 'k') c.moveSelection(-1);

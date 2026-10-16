@@ -65,6 +65,7 @@ const GROUPS: { name: string; keys: [string[], string][]; examples?: [string, st
       [['1', '–', '9'], 'Show or hide an object type'],
       [['t', 'T'], 'Focus the next or previous shown type; the others keep only their bars'],
       [['r'], 'Arrows for everything on screen'],
+      [['o'], 'View: types, focus, objects that ended abnormally, arrows'],
       [['?'], 'These keys'],
     ],
   },

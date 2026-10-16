@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { fmt, objectName } from '../model/present';
 import { parseQuery, type Match, type TypeWords } from '../model/search';
-import type { RowView, Source } from '../model/source';
+import type { RowFilter, RowView, Source } from '../model/source';
 import { CHAR_EM, labelColumns, labelFontSize } from './labels';
 
 const CHUNK = 256;
@@ -69,6 +69,10 @@ export class Controller {
   /** The selected cycle, as vim's cursor column is to its current line. */
   column: number | null = null;
   hiddenTypes = new Set<number>();
+  /** Whether objects that ended without their type's normal end are hidden. */
+  hideAbnormal = false;
+  /** Whether the view panel is open. */
+  viewOpen = false;
   /** The type drawn in full; every other type keeps only its bars. A file opens with its first type in focus. */
   focusType = 0;
   /** Arrows for the selected row: from each object it names to it, and from it to each row that names it. */
@@ -332,7 +336,8 @@ export class Controller {
     const row = await this.rowAsync(this.selected);
     if (this.placeOf(row.index) < 0) {
       const type = this.source.info.types[row.type].name;
-      this.say(`${objectName(type, row.id)} is hidden with its type; press ${row.type + 1} to show ${type}.`);
+      if (this.hiddenTypes.has(row.type)) this.say(`${objectName(type, row.id)} is hidden with its type; press ${row.type + 1} to show ${type}.`);
+      else this.say(`${objectName(type, row.id)} ended by ${row.endedBy}, and objects that ended abnormally are hidden; press o to show them.`);
       return;
     }
     const first = row.events.length ? row.events[0].cycle : row.start;
@@ -403,21 +408,48 @@ export class Controller {
     return true;
   }
 
-  /** Shows or hides a type's rows, closing up the rows on screen around them. The row being looked at stays in place:
-   *  the selection while it is on screen and stays shown, else the top row, or the first shown row after it. */
+  /** Shows or hides a type's rows, closing up the rows on screen around them. */
   async toggleType(t: number): Promise<void> {
     if (t >= this.source.info.types.length) return;
+    await this.refilter(() => {
+      if (this.hiddenTypes.has(t)) this.hiddenTypes.delete(t);
+      else this.hiddenTypes.add(t);
+      // The focus stays on a shown type while any is shown.
+      if (this.hiddenTypes.has(this.focusType)) this.focusType = this.nextShownType(this.focusType, 1) ?? this.focusType;
+    });
+  }
+
+  /** Shows or hides objects that ended without their type's normal end, closing up rows as hiding a type does. */
+  async toggleAbnormal(): Promise<void> {
+    await this.refilter(() => (this.hideAbnormal = !this.hideAbnormal));
+  }
+
+  /** What is hidden. */
+  get filter(): RowFilter {
+    return { types: this.hiddenTypes, abnormal: this.hideAbnormal };
+  }
+
+  /** How many objects are hidden, by type or by how they ended. */
+  get hiddenCount(): number {
+    return this.source.info.rowCount - this.shownCount;
+  }
+
+  toggleView(): void {
+    this.viewOpen = !this.viewOpen;
+    this.changed();
+  }
+
+  /** Changes what is hidden and closes up the rows on screen around it. The row being looked at stays in place: the
+   *  selection while it is on screen and stays shown, else the top row, or the first shown row after it. */
+  private async refilter(change: () => void): Promise<void> {
     const sel = this.selected;
     const selOnScreen = sel !== null && this.placeOf(sel) >= 0 && this.rowY(sel) >= RULER && this.rowY(sel) < this.height;
     const top = Math.min(Math.floor(this.y0 / this.rowH), this.shownCount - 1);
     let anchor = selOnScreen ? sel! : top >= 0 ? this.rowAtPlace(top) : 0;
     const offset = selOnScreen || top >= 0 ? this.rowY(anchor) - RULER : 0;
-    if (this.hiddenTypes.has(t)) this.hiddenTypes.delete(t);
-    else this.hiddenTypes.add(t);
-    // The focus stays on a shown type while any is shown.
-    if (this.hiddenTypes.has(this.focusType)) this.focusType = this.nextShownType(this.focusType, 1) ?? this.focusType;
+    change();
     const toggle = ++this.toggles;
-    const shown = this.hiddenTypes.size ? await this.source.visibleRows(this.hiddenTypes) : null;
+    const shown = this.hiddenTypes.size || this.hideAbnormal ? await this.source.visibleRows(this.filter) : null;
     if (toggle !== this.toggles) return;
     this.shown = shown;
     this.place = null;
@@ -432,7 +464,7 @@ export class Controller {
     }
     this.clamp();
     this.changed();
-    // A search leaves out hidden types, so its matches change with them.
+    // A search leaves out hidden objects, so its matches change with them.
     if (this.search && !this.search.error) await this.setSearch(this.search.text);
   }
 
@@ -449,7 +481,7 @@ export class Controller {
   async setSearch(text: string): Promise<void> {
     const n = ++this.searches;
     const query = parseQuery(text, await this.loadWords());
-    const result = 'error' in query ? { matches: [], skipped: 0 } : await this.source.search(query, this.hiddenTypes);
+    const result = 'error' in query ? { matches: [], skipped: 0 } : await this.source.search(query, this.filter);
     if (n !== this.searches) return;
     this.search = { text, error: 'error' in query ? query.error : null, ...result, rows: new Set(result.matches.map((m) => m.row)) };
     this.changed();
@@ -481,7 +513,7 @@ export class Controller {
       return false;
     }
     if (!s.matches.length) {
-      this.say(`Nothing matches ${s.text}${s.skipped ? `, apart from ${s.skipped} objects of hidden types` : ''}.`);
+      this.say(`Nothing matches ${s.text}${s.skipped ? `, apart from ${s.skipped} hidden objects` : ''}.`);
       return false;
     }
     const cycle = this.column ?? Math.floor(this.x0 + this.visibleCycles / 3);
@@ -566,6 +598,13 @@ export class Controller {
       if (!this.hiddenTypes.has(t)) return t;
     }
     return null;
+  }
+
+  /** Puts a shown type in focus. */
+  setFocus(t: number): void {
+    if (this.hiddenTypes.has(t) || t === this.focusType) return;
+    this.focusType = t;
+    this.changed();
   }
 
   /** Moves the focus to the next or previous shown type, in the view's order. */
