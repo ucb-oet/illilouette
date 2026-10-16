@@ -145,8 +145,8 @@ export function Header({ c, onOpen }: { c: Controller; onOpen: (file: File) => P
             onClick={() => void c.toggleType(i)}
           >
             <kbd>{i + 1}</kbd>
-            {/* Drawn as the type's cells are: filled with a bar beneath in focus, the bar alone otherwise. */}
-            <i class="mark" aria-hidden="true" />
+            {/* Filled with the bar beneath in focus; otherwise the bar alone, as the type's cells are drawn. */}
+            <i class={i === c.focusType ? 'mark filled' : 'mark'} aria-hidden="true" />
             {t.name}
           </button>
         ))}
