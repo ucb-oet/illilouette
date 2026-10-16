@@ -350,6 +350,32 @@ describe.skipIf(!haveFixtures)('Controller moving from the timeline bar', () => 
   });
 });
 
+describe.skipIf(!haveFixtures)('Zoom sizes', () => {
+  it('are whole pixels for rows, and for cells from 8 px per cycle; a key moves a pixel, and small turns add up', async () => {
+    const c = new Controller(load('rocket-rv64ui-p-add'));
+    c.setSize(1200, 800);
+    await c.home();
+    const widths: number[] = [];
+    for (let k = 0; k < 5; k++) {
+      c.zoomTime(c.gutterW, 1 / ZOOM_STEP, true);
+      widths.push(c.cellW);
+    }
+    expect(widths.slice(0, 4)).toEqual([18, 14, 11, 9]);
+    expect(widths[4]).toBeCloseTo(7.2);
+    c.cellW = 22;
+    for (let k = 0; k < 10; k++) c.zoomTime(c.gutterW, 0.99);
+    expect(c.cellW).toBe(20);
+    c.rowH = 2;
+    c.zoomRows(1 / ZOOM_STEP, null, true);
+    expect(c.rowH).toBe(1);
+    c.zoomRows(ZOOM_STEP, null, true);
+    expect(c.rowH).toBe(2);
+    c.rowH = 18;
+    for (let k = 0; k < 10; k++) c.zoomRows(1.01, null);
+    expect(c.rowH).toBe(20);
+  });
+});
+
 describe.skipIf(!haveFixtures)('Arrows when zoomed out', () => {
   it('go one zoom step after the label column loses its text, or the cells their letters', async () => {
     const c = new Controller(load('rocket-rv64ui-p-add'));

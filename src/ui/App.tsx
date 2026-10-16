@@ -111,8 +111,8 @@ function Viewer({ source, onOpen }: { source: MemorySource; onOpen: (f: File) =>
       }
       const x = c.hover ? c.hover.x : c.gutterW + c.plotW / 2;
       const rows = Math.max(1, Math.floor((c.height - 28) / c.rowH));
-      if (k === 'q' || k === 'e') c.zoomTime(x, k === 'e' ? ZOOM_STEP : 1 / ZOOM_STEP);
-      else if (k === 'Q' || k === 'E') c.zoomRows(k === 'E' ? ZOOM_STEP : 1 / ZOOM_STEP, c.hover ? c.hover.y : null);
+      if (k === 'q' || k === 'e') c.zoomTime(x, k === 'e' ? ZOOM_STEP : 1 / ZOOM_STEP, true);
+      else if (k === 'Q' || k === 'E') c.zoomRows(k === 'E' ? ZOOM_STEP : 1 / ZOOM_STEP, c.hover ? c.hover.y : null, true);
       else if (k === 'w' || k === 's') c.scrollRows((k === 's' ? 1 : -1) * Math.max(c.rowH, (rows * c.rowH) / 8));
       else if (k === 'a' || k === 'd') c.panTime(((k === 'd' ? 1 : -1) * c.visibleCycles) / 8);
       else if (k === 'f') void c.focusSelected();
@@ -225,7 +225,7 @@ function Status({ c }: { c: Controller }) {
     // Over the label column.
     readout = objectName(t.name, r.id);
   }
-  const zoom = `${c.cellW >= 10 ? c.cellW.toFixed(0) : c.cellW.toFixed(2)} px/cycle · ${c.rowH.toFixed(0)} px rows · ${DETAIL_NAMES[detailOf(c)]}`;
+  const zoom = `${Number.isInteger(c.cellW) ? c.cellW : c.cellW.toFixed(2)} px/cycle · ${c.rowH} px rows · ${DETAIL_NAMES[detailOf(c)]}`;
   return (
     <footer class="status">
       <span class="readout">{c.notice ? <span class="notice">{c.notice}</span> : readout}</span>

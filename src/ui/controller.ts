@@ -11,6 +11,27 @@ const MAX_CHUNKS = 64;
 export const RULER = 28;
 /** The factor one press of a zoom key zooms by. */
 export const ZOOM_STEP = 1.25;
+/** Cells this wide and up, drawn one by one, take whole pixels, so that their edges are crisp; narrower ones, drawn
+ *  as runs, zoom smoothly. Rows always take whole pixels. */
+export const WHOLE_CELLS = 8;
+
+/** A size after a zoom by a factor, in whole pixels from `whole` up. A key press moves the drawn size at least a pixel;
+ *  the wheel and pinch keep an exact level, so that their small turns add up. A drawn size set other than by zooming,
+ *  as when a file opens, starts the exact level afresh. */
+function zoomSize(drawn: number, exact: number, factor: number, key: boolean, min: number, max: number, whole: number) {
+  const snap = (v: number) => (v >= whole ? Math.round(v) : v);
+  const clampTo = (v: number) => Math.min(max, Math.max(min, v));
+  if (key) {
+    let next = clampTo(drawn * factor);
+    if (next >= whole) {
+      next = Math.round(next);
+      if (next === drawn) next = clampTo(drawn + (factor > 1 ? 1 : -1));
+    }
+    return { drawn: next, exact: next };
+  }
+  const level = clampTo((snap(exact) === drawn ? exact : drawn) * factor);
+  return { drawn: snap(level), exact: level };
+}
 
 /** A cursor on a clock edge, by the cycle the edge starts. An empty name shows as that cycle. */
 export interface Cursor {
@@ -34,6 +55,9 @@ export class Controller {
   cellW = 22;
   /** Pixels per row. */
   rowH = 22;
+  /** The levels the wheel and pinch zoom to, of which cellW and rowH are the sizes drawn. */
+  private cellLevel = 22;
+  private rowLevel = 22;
   /** Width of the label column. */
   gutterW = 280;
   /** Size of the waterfall canvas, in CSS pixels. */
@@ -193,20 +217,21 @@ export class Controller {
     this.y0 = Math.min(Math.max(0, this.y0), Math.max(0, this.shownCount * this.rowH - (this.height - RULER) + this.rowH * 2));
   }
 
-  /** Zooms time around a point on the timeline, by a factor on pixels per cycle. */
-  zoomTime(x: number, factor: number): void {
+  /** Zooms time around a point on the timeline, by a factor on pixels per cycle; `key` for a key press. */
+  zoomTime(x: number, factor: number, key = false): void {
     const px = Math.max(0, x - this.gutterW);
     const cycle = this.x0 + px / this.cellW;
-    this.cellW = Math.min(64, Math.max(0.05, this.cellW * factor));
+    ({ drawn: this.cellW, exact: this.cellLevel } = zoomSize(this.cellW, this.cellLevel, factor, key, 0.05, 64, WHOLE_CELLS));
     this.x0 = cycle - px / this.cellW;
     this.clamp();
     this.changed();
   }
 
   /** Zooms rows, keeping in place the row being looked at: the selected row while it is on screen, else the row
-   *  under the pointer, else the middle of the view. */
-  zoomRows(factor: number, pointerY: number | null): void {
-    const next = Math.min(40, Math.max(1, this.rowH * factor));
+   *  under the pointer, else the middle of the view; `key` for a key press. */
+  zoomRows(factor: number, pointerY: number | null, key = false): void {
+    const { drawn: next, exact } = zoomSize(this.rowH, this.rowLevel, factor, key, 1, 40, 1);
+    this.rowLevel = exact;
     let row: number;
     let y: number;
     const sel = this.selected;

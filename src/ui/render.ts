@@ -22,9 +22,9 @@ export function detailOf(c: Controller): Detail {
 }
 
 /** Whether arrows show, the selection's included: not once zoomed out a step past where cells lose their letters or
- *  the label column its text, where they would only clutter. */
+ *  the label column its text, where they would only clutter. Sizes there are whole pixels, so the step is rounded. */
 export function arrowsShown(c: Controller): boolean {
-  return c.cellW >= LETTER_CELLS / ZOOM_STEP && c.rowH >= LABEL_ROWS / ZOOM_STEP;
+  return c.cellW >= Math.round(LETTER_CELLS / ZOOM_STEP) - 0.5 && c.rowH >= Math.round(LABEL_ROWS / ZOOM_STEP) - 0.5;
 }
 
 export const DETAIL_NAMES: Record<Detail, string> = {
