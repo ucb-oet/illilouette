@@ -64,9 +64,18 @@ function Summary({ c }: { c: Controller }) {
   const { summary } = c.source.info;
   return (
     <>
-      {summary.map((t) => (
+      {summary.map((t, ti) => (
         <section key={t.name}>
           <h3>{t.name}</h3>
+          {/* The legend of the type's stages, which share their colors with every other type's. */}
+          <div class="stages legend">
+            {c.source.info.types[ti].stages.map((s, k) => (
+              <span key={s}>
+                <i style={{ background: `var(--stage-${k % 8})` }} />
+                {s}
+              </span>
+            ))}
+          </div>
           <dl class="summary">
             <dt>Objects</dt>
             <dd>{fmt(t.rows)}</dd>

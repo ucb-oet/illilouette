@@ -104,18 +104,13 @@ kbd {
 /* The type in focus, drawn in full. */
 .chip.focused { box-shadow: inset 0 0 0 1.5px var(--accent); }
 .chip kbd { margin-right: 2px; }
-.chip .swatches { display: inline-flex; gap: 2px; }
-.chip .swatches i { width: 8px; height: 8px; border-radius: 2px; display: block; }
-.chip[aria-pressed="false"] .swatches { opacity: 0.35; }
-.seg {
-  display: inline-flex; padding: 3px; gap: 2px; border-radius: 8px; background: var(--mantle);
-  box-shadow: inset 0 0 0 1px var(--surface0);
-}
-.seg button {
-  border: 0; background: transparent; padding: 4px 10px; border-radius: 6px; cursor: pointer;
-  color: var(--subtext0); font-weight: 500; font-size: 12.5px;
-}
-.seg button[aria-pressed="true"] { background: var(--base); color: var(--text); box-shadow: inset 0 0 0 1px var(--surface0); }
+/* One mark per type, drawn as its cells are: a wash with a bar beneath for the type in focus, the bar alone for the
+   others. */
+.chip .mark { width: 14px; height: 10px; border-radius: 2px; display: block; box-shadow: inset 0 -2px 0 var(--stage-0); }
+.chip.focused .mark { background: color-mix(in srgb, var(--stage-0) 32%, transparent); }
+.chip[aria-pressed="false"] .mark { opacity: 0.35; }
+.icon { display: inline-grid; place-items: center; padding: 5px 7px; color: var(--subtext1); }
+.icon svg { width: 16px; height: 16px; display: block; }
 .plain {
   border: 0; padding: 5px 10px; border-radius: 7px; cursor: pointer; background: var(--mantle);
   box-shadow: inset 0 0 0 1px var(--surface0); font-size: 12.5px;
@@ -174,6 +169,7 @@ kbd {
 .stages { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 12.5px; }
 .stages span { display: inline-flex; align-items: center; gap: 5px; }
 .stages i { width: 8px; height: 8px; border-radius: 2px; display: block; }
+.stages.legend { margin-bottom: 8px; color: var(--subtext1); }
 .links { display: flex; flex-wrap: wrap; gap: 6px; }
 .links button {
   border: 0; cursor: pointer; padding: 4px 9px; border-radius: 6px; background: var(--base);

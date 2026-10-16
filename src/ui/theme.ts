@@ -101,6 +101,11 @@ export function onThemeChange(callback: () => void): () => void {
 
 export type ThemeChoice = 'system' | 'light' | 'dark';
 
+/** Whether a choice comes out dark: the system's setting until a choice is made. */
+export function isDark(choice: ThemeChoice): boolean {
+  return choice === 'dark' || (choice === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+}
+
 const KEY = 'illilouette.theme';
 
 export function loadThemeChoice(): ThemeChoice {

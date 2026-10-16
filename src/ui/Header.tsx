@@ -1,10 +1,10 @@
 // The header: the file's name and range, the jump box, which also searches, the type and arrow toggles, the palette,
 // and opening another file.
-import { useRef, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { fmt } from '../model/present';
 import { suggest, type Suggestion } from '../model/search';
 import { Controller, useController } from './controller';
-import { applyThemeChoice, loadThemeChoice, type ThemeChoice } from './theme';
+import { applyThemeChoice, isDark, loadThemeChoice, onThemeChange, type ThemeChoice } from './theme';
 
 export function Header({ c, onOpen }: { c: Controller; onOpen: (file: File) => Promise<void> }) {
   useController(c);
@@ -15,6 +15,10 @@ export function Header({ c, onOpen }: { c: Controller; onOpen: (file: File) => P
   /** The completion picked with the arrow keys, or -1. */
   const [picked, setPicked] = useState(-1);
   const box = useRef<HTMLInputElement>(null);
+  // The theme button follows the system's setting while no choice is made.
+  const [, setThemeTick] = useState(0);
+  useEffect(() => onThemeChange(() => setThemeTick((n) => n + 1)), []);
+  const dark = isDark(theme);
 
   /** A cycle or an object to jump to, rather than a search. */
   const isJump = (q: string) => /^\d[\d,]*$/.test(q) || /^([A-Za-z_][\w.]*)?#\d+$/.test(q);
@@ -137,29 +141,28 @@ export function Header({ c, onOpen }: { c: Controller; onOpen: (file: File) => P
             class={i === c.focusType ? 'chip focused' : 'chip'}
             key={t.name}
             aria-pressed={!c.hiddenTypes.has(i)}
-            title={i === c.focusType ? `${t.name} is in focus; t moves the focus` : undefined}
+            title={`${t.name}: ${t.stages.join(', ')}${i === c.focusType ? '. In focus; t moves the focus.' : ''}`}
             onClick={() => void c.toggleType(i)}
           >
             <kbd>{i + 1}</kbd>
-            <span class="swatches">
-              {t.stages.map((s, k) => (
-                <i key={s} title={s} style={{ background: `var(--stage-${k % 8})` }} />
-              ))}
-            </span>
+            {/* Drawn as the type's cells are: filled with a bar beneath in focus, the bar alone otherwise. */}
+            <i class="mark" aria-hidden="true" />
             {t.name}
           </button>
         ))}
-        <button type="button" class="chip" aria-pressed={c.allArrows} onClick={() => c.toggleArrows()}>
-          <kbd>r</kbd>All arrows
+        <button type="button" class="chip" aria-pressed={c.allArrows} title="Arrows for everything on screen" onClick={() => c.toggleArrows()}>
+          <kbd>r</kbd>Arrows
         </button>
       </div>
-      <div class="seg" role="group" aria-label="Palette">
-        {(['light', 'dark', 'system'] as const).map((t) => (
-          <button type="button" key={t} aria-pressed={theme === t} onClick={() => choose(t)}>
-            {t === 'light' ? 'Latte' : t === 'dark' ? 'Mocha' : 'Auto'}
-          </button>
-        ))}
-      </div>
+      <button
+        type="button"
+        class="plain icon"
+        onClick={() => choose(dark ? 'light' : 'dark')}
+        title={dark ? 'Switch to Latte, the light palette' : 'Switch to Mocha, the dark palette'}
+        aria-label={dark ? 'Switch to the light palette' : 'Switch to the dark palette'}
+      >
+        {dark ? <Sun /> : <Moon />}
+      </button>
       <label class="plain">
         Open…
         <input
@@ -176,5 +179,22 @@ export function Header({ c, onOpen }: { c: Controller; onOpen: (file: File) => P
         />
       </label>
     </header>
+  );
+}
+
+function Sun() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
+      <circle cx="8" cy="8" r="3" />
+      <path d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1.06 1.06M11.54 11.54l1.06 1.06M3.4 12.6l1.06-1.06M11.54 4.46l1.06-1.06" />
+    </svg>
+  );
+}
+
+function Moon() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true">
+      <path d="M13.5 9.6A5.75 5.75 0 1 1 6.4 2.5a4.6 4.6 0 0 0 7.1 7.1z" />
+    </svg>
   );
 }
