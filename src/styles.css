@@ -89,7 +89,7 @@ kbd {
 }
 .suggestions {
   position: absolute; top: calc(100% + 4px); left: 0; z-index: 5; min-width: 100%; max-height: 18rem; overflow: auto;
-  margin: 0; padding: 4px; list-style: none; border-radius: var(--radius); background: var(--crust);
+  margin: 0; padding: 4px; scroll-padding: 4px; list-style: none; border-radius: var(--radius); background: var(--crust);
   box-shadow: 0 6px 20px rgb(0 0 0 / 0.18), inset 0 0 0 1px var(--surface0);
 }
 .suggestions li {

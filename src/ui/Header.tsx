@@ -15,6 +15,11 @@ export function Header({ c, onOpen }: { c: Controller; onOpen: (file: File) => P
   /** The completion picked with the arrow keys, or -1. */
   const [picked, setPicked] = useState(-1);
   const box = useRef<HTMLInputElement>(null);
+  const list = useRef<HTMLUListElement>(null);
+  // Keep the picked completion in view as the arrow keys move past the list's visible part.
+  useEffect(() => {
+    if (picked >= 0) list.current?.children[picked]?.scrollIntoView({ block: 'nearest' });
+  }, [picked]);
   // The theme button follows the system's setting while no choice is made.
   const [, setThemeTick] = useState(0);
   useEffect(() => onThemeChange(() => setThemeTick((n) => n + 1)), []);
@@ -115,7 +120,7 @@ export function Header({ c, onOpen }: { c: Controller; onOpen: (file: File) => P
           </span>
         )}
         {suggestions.length > 0 && (
-          <ul class="suggestions" id="jump-suggestions" role="listbox">
+          <ul class="suggestions" id="jump-suggestions" role="listbox" ref={list}>
             {suggestions.map((g, k) => (
               <li
                 key={g.text}
