@@ -91,7 +91,7 @@ export function Header({ c, onOpen }: { c: Controller; onOpen: (file: File) => P
           value={query}
           onInput={(e) => edit((e.target as HTMLInputElement).value)}
           // Room on the right for the count, at its monospace width.
-          style={{ paddingRight: count || skipped ? `${Math.ceil((count + skipped).length * 7 + 20)}px` : undefined }}
+          style={{ paddingRight: count || skipped ? `${Math.ceil((count + skipped).length * 7.3 + 20)}px` : undefined }}
           onKeyDown={onKeyDown}
           onFocus={() => {
             setFocused(true);
