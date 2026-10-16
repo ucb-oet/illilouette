@@ -38,11 +38,16 @@ export function effectText(row: RowView, e: EventView, stages: string[]): string
 
 /** A field as text; a field naming another object also says where that object was, when its row is given. */
 export function fieldText(f: FieldView, other?: RowView, cycle?: number, stages?: string[]): string {
+  return `${f.name} ${fieldValue(f, other, cycle, stages)}`;
+}
+
+/** A field's value, with where an object it names was in the cycle, when its row is given: "fetch#97 (in S2)". */
+export function fieldValue(f: FieldView, other?: RowView, cycle?: number, stages?: string[]): string {
   if (other && cycle !== undefined && stages) {
     const s = segmentAt(other, cycle);
-    if (s) return `${f.name} ${f.text} (in ${stages[s.stage]})`;
+    if (s) return `${f.text} (in ${stages[s.stage]})`;
   }
-  return `${f.name} ${f.text}`;
+  return f.text;
 }
 
 /** How an object's life went: "Ended by retire · 4 cycles · 1,511–1,514", or "Live when the trace ends · …". */

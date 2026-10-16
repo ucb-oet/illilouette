@@ -192,7 +192,9 @@ kbd {
 }
 .events .src:hover { color: var(--subtext1); }
 .events .effect { color: var(--text); }
-.events .fields { font-family: var(--font-data); color: var(--subtext1); overflow-wrap: anywhere; }
+.events .fields { display: grid; grid-template-columns: auto 1fr; gap: 1px 10px; margin: 2px 0 0; }
+.events .fields dt { color: var(--subtext0); }
+.events .fields dd { margin: 0; font-family: var(--font-data); color: var(--subtext1); overflow-wrap: anywhere; }
 .summary { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; margin: 0; font-size: 13px; }
 .summary dd { margin: 0; font-family: var(--font-data); text-align: right; font-variant-numeric: tabular-nums; }
 .summary dt { display: flex; align-items: center; gap: 6px; }

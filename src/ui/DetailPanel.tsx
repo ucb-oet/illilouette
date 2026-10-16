@@ -1,7 +1,7 @@
 // The detail panel: the selected object, or with nothing selected, a summary of the file.
 import { Fragment } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
-import { effectText, fieldText, fmt, objectName, outcomeText, shortName, timeByStage } from '../model/present';
+import { effectText, fieldValue, fmt, objectName, outcomeText, shortName, timeByStage } from '../model/present';
 import type { Referrer, RowView } from '../model/source';
 import { Controller, useController } from './controller';
 
@@ -181,12 +181,10 @@ function Selection({ c, s }: { c: Controller; s: Selected }) {
         <h3>Events, at the cycle each fires</h3>
         <ol class="events">
           {row.events.map((e, k) => {
-            const fields = e.fields
-              .map((f) => {
-                const other = f.row === null ? undefined : others.get(f.row);
-                return fieldText(f, other, e.cycle, other ? stagesOf(other) : undefined);
-              })
-              .join(' · ');
+            const fields = e.fields.map((f) => {
+              const other = f.row === null ? undefined : others.get(f.row);
+              return { name: f.name, value: fieldValue(f, other, e.cycle, other ? stagesOf(other) : undefined) };
+            });
             return (
               <li key={k}>
                 <span class="cyc">{fmt(e.cycle)}</span>
@@ -198,7 +196,17 @@ function Selection({ c, s }: { c: Controller; s: Selected }) {
                     </button>
                   </span>
                   <span class="effect">{effectText(row, e, type.stages)}</span>
-                  {fields && <span class="fields">{fields}</span>}
+                  {fields.length > 0 && (
+                    // One row per field, as the object's own fields are listed.
+                    <dl class="fields">
+                      {fields.map((f, j) => (
+                        <Fragment key={j}>
+                          <dt>{f.name}</dt>
+                          <dd>{f.value}</dd>
+                        </Fragment>
+                      ))}
+                    </dl>
+                  )}
                 </div>
               </li>
             );
