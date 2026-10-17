@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { decodeWaterfall } from '../src/file/waterfall';
+import { decodeWaterfall, type Waterfall } from '../src/file/waterfall';
 import { MemorySource } from '../src/model/memory';
 import { effectText, fieldText, segmentAt, timeByStage } from '../src/model/present';
 import { Controller, RULER, ZOOM_STEP } from '../src/ui/controller';
@@ -341,6 +341,45 @@ describe.skipIf(!haveFixtures)('Vim moves', () => {
     expect([c.column, c.notice]).toEqual([597, 'instruction#35 has no later event.']);
     await c.moveEvent(-1, 3);
     expect(c.column).toBe(594);
+  });
+});
+
+describe('Paragraphs three levels deep', () => {
+  // fetch#0 > instruction#0 > vuop#0–2, instruction#1; fetch#1 > instruction#2.
+  const plan: [number, number, number | null][] = [[0, 0, null], [1, 0, 0], [2, 0, 1], [2, 1, 1], [2, 2, 1], [1, 1, 0], [0, 1, null], [1, 2, 6]];
+  const w: Waterfall = {
+    version: 1,
+    title: 'three levels',
+    firstCycle: 0,
+    lastCycle: 20,
+    strings: ['', 'fetch', 'instruction', 'vuop', 'S'],
+    sites: [],
+    types: [1, 2, 3].map((name) => ({ name, stages: [4] })),
+    rows: plan.map(([type, id, parent], i) => ({
+      type, id, label: [], segments: [{ from: i, stage: 0, held: 0 }], end: i + 2, endedBy: 0, normalEnd: true, fields: [], events: [], parent,
+    })),
+  };
+  it('go past a row with rows under it, and out of its parent\'s rows from one without', async () => {
+    const c = new Controller(new MemorySource(w));
+    c.setSize(1200, 800);
+    await c.home();
+    const at = async (row: number, step: 1 | -1, times = 1) => {
+      c.select(row);
+      await c.moveParagraph(step, times);
+      return c.selected;
+    };
+    // From a vuop, out of the instruction's vuops; from an instruction with vuops, past them.
+    expect(await at(2, 1)).toBe(5);
+    expect(await at(1, 1)).toBe(5);
+    // From an instruction with nothing under it, out of its packet's instructions; from a packet, to the next.
+    expect(await at(5, 1)).toBe(6);
+    expect(await at(0, 1)).toBe(6);
+    // Back: from a row with nothing under it to its parent; from a packet to the previous one.
+    expect(await at(4, -1)).toBe(1);
+    expect(await at(5, -1)).toBe(0);
+    expect(await at(6, -1)).toBe(0);
+    // A count repeats from wherever each step lands.
+    expect(await at(2, 1, 2)).toBe(6);
   });
 });
 

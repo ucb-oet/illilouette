@@ -331,18 +331,24 @@ export class Controller {
     return r.ancestorTypes.filter((t) => !this.hiddenTypes.has(t)).length;
   }
 
-  /** Moves the selection by paragraphs, as vim's } and { do: a paragraph is a row and the rows under it, so } goes past
-   *  the selected row's children to the next row as shallow or shallower, and { back to the previous one. In a trace
-   *  without parents, every row is a paragraph. With nothing selected, selects the top row on screen. */
+  /** Moves the selection by paragraphs, as vim's } and { do. A paragraph is a row and the rows under it, so } goes past
+   *  the selected row's children to the next row as shallow or shallower, and { back to the previous one. A row with
+   *  nothing under it is inside its parent's paragraph instead: } goes past the rest of its parent's rows, and { back
+   *  to the parent. In a trace without parents, every row is a paragraph. With nothing selected, selects the top row on
+   *  screen. */
   async moveParagraph(step: 1 | -1, times = 1): Promise<void> {
     if (this.shownCount === 0) return;
     if (this.selected === null || this.placeOf(this.selected) < 0) return this.moveSelection(step);
     const start = this.selected;
-    const depth = this.depthOf(await this.rowAsync(start));
+    const depthAt = async (q: number) => this.depthOf(await this.rowAsync(this.rowAtPlace(q)));
     let p = this.placeOf(start);
     for (let moved = 0; moved < times; moved++) {
+      const depth = await depthAt(p);
+      // A row has rows under it when the next row shown is deeper.
+      const leaf = p + 1 >= this.shownCount || (await depthAt(p + 1)) <= depth;
+      const stop = leaf && depth > 0 ? (d: number) => d < depth : (d: number) => d <= depth;
       let q = p + step;
-      while (q >= 0 && q < this.shownCount && this.depthOf(await this.rowAsync(this.rowAtPlace(q))) > depth) q += step;
+      while (q >= 0 && q < this.shownCount && !stop(await depthAt(q))) q += step;
       if (q < 0 || q >= this.shownCount) break;
       p = q;
     }

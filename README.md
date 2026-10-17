@@ -52,7 +52,7 @@ Letters are as typed: a capital takes Shift.
 | `t` / `T` | Focus the next or previous shown type; a file opens with its first type in focus |
 | `0` / `$` | Select the selection's first or last event's cycle, and pan to it, as vim's start and end of line |
 | `[` / `]` | Move the selected cycle to the selected object's previous or next event |
-| `{` / `}` | Move by paragraphs, as in vim: a row and the rows under it, so `}` goes past the selected row's children to the next row as shallow or shallower |
+| `{` / `}` | Move by paragraphs, as in vim: a row and the rows under it, so `}` goes past the selected row's children to the next row as shallow or shallower. From a row with nothing under it, such as a micro-op, `}` goes past the rest of its parent's rows and `{` back to the parent |
 | `J` / `K` | Move the selection down or up the selected cycle, to the next row with anything there, keeping the cycle; with nothing selected, `J` finds the first such row |
 | `gg` / `G` | Select the first or last row shown, and bring it into view |
 | `H` / `M` / `L` | Select the top, middle, or bottom row on screen |
