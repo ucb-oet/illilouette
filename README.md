@@ -48,9 +48,14 @@ Letters are as typed: a capital takes Shift.
 | `↑` `↓` or `k` `j` | Move the selection a row, keeping its cycle, and scrolling rows only |
 | `←` `→` or `h` `l` | Move the selected cycle; from the selected object's first event when none is selected |
 | `Esc` | Clear the selection and the selected cycle |
-| `1`–`9` | Show or hide an object type; its rows close up |
+| `z1`–`z9` | Show or hide an object type; its rows close up |
 | `t` / `T` | Focus the next or previous shown type; a file opens with its first type in focus |
 | `0` / `$` | Select the selection's first or last event's cycle, and pan to it, as vim's start and end of line |
+| `[` / `]` | Move the selected cycle to the selected object's previous or next event |
+| `gg` / `G` | Select the first or last row shown, and bring it into view |
+| `H` / `M` / `L` | Select the top, middle, or bottom row on screen |
+| `zz` / `zt` / `zb` | Scroll the selected row to the middle, top, or bottom of the screen; time stays |
+| A count | Repeats a move, as in vim: `20j`, `5l`, `3n`, `2]`. Keys waiting for the rest of a command show in the status bar, and `Esc` drops them |
 | `i` | Put a cursor on the edge where the selected cycle starts, as vim's `i` inserts before the cursor, and name it: type a name, or keep its cycle, then Enter or `Esc`. The ruler shows each cursor, and between neighbors the gap, such as `Δ 4` |
 | `I` / `A` | Put a cursor at the selected object's start, or after its end, as vim's `I` and `A` insert at the start and end of the line; selects its first or last event's cycle, as `0` and `$` do |
 | `x` | Remove the cursor at the selected cycle: on the edge where it starts, or else the edge after it |

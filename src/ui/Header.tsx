@@ -152,7 +152,7 @@ export function Header({ c, onOpen }: { c: Controller; onOpen: (file: File) => P
             title={`${t.name}: ${t.stages.join(', ')}${i === c.focusType ? '. In focus; t moves the focus.' : ''}`}
             onClick={() => void c.toggleType(i)}
           >
-            <kbd>{i + 1}</kbd>
+            <kbd>z{i + 1}</kbd>
             {/* Filled with the bar beneath in focus; otherwise the bar alone, as the type's cells are drawn. */}
             <i class={i === c.focusType ? 'mark filled' : 'mark'} aria-hidden="true" />
             {t.name}

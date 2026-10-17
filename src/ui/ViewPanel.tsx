@@ -33,7 +33,7 @@ export function ViewPanel({ c, anchor }: { c: Controller; anchor: RefObject<HTML
             <label>
               <input type="checkbox" checked={!c.hiddenTypes.has(i)} onChange={() => void c.toggleType(i)} />
               {t.name}
-              <kbd>{i + 1}</kbd>
+              <kbd>z{i + 1}</kbd>
             </label>
             <label class="focus" title="The type drawn in full; t moves the focus">
               <input type="radio" name="view-focus" checked={c.focusType === i} disabled={c.hiddenTypes.has(i)} onChange={() => c.setFocus(i)} />

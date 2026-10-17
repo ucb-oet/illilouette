@@ -73,6 +73,8 @@ export class Controller {
   hideAbnormal = false;
   /** Whether the view panel is open. */
   viewOpen = false;
+  /** Keys read but waiting for the rest of their command, such as a count or the g of gg, shown in the status bar. */
+  keysPending = '';
   /** The type drawn in full; every other type keeps only its bars. A file opens with its first type in focus. */
   focusType = 0;
   /** Arrows for the selected row: from each object it names to it, and from it to each row that names it. */
@@ -315,11 +317,65 @@ export class Controller {
     this.selectColumn(row ? (row.events[0]?.cycle ?? row.start) : this.x0 + this.visibleCycles / 2, true);
   }
 
-  /** Moves the selection by rows on screen; with nothing selected, selects the top row. */
+  /** Moves the selection by rows on screen, stopping at the first and last; with nothing selected, selects the top
+   *  row. */
   moveSelection(delta: number): void {
+    if (this.shownCount === 0) return;
     const p = this.selected === null ? -1 : this.placeOf(this.selected);
-    const next = p < 0 ? Math.floor(this.y0 / this.rowH) : p + delta;
-    if (next >= 0 && next < this.shownCount) this.select(this.rowAtPlace(next), true);
+    const next = p < 0 ? Math.floor(this.y0 / this.rowH) : Math.min(Math.max(p + delta, 0), this.shownCount - 1);
+    if (next !== p) this.select(this.rowAtPlace(next), true);
+  }
+
+  /** Selects the first or last row shown, as vim's gg and G go to the first and last line, and brings it into view as
+   *  f does. */
+  async selectEdgeRow(edge: 'first' | 'last'): Promise<void> {
+    if (this.shownCount === 0) return;
+    this.select(this.rowAtPlace(edge === 'first' ? 0 : this.shownCount - 1));
+    await this.focusSelected();
+  }
+
+  /** Selects the top, middle, or bottom row on screen, as vim's H, M, and L do, without moving the view. */
+  selectScreenRow(where: 'top' | 'middle' | 'bottom'): void {
+    if (this.shownCount === 0) return;
+    const last = this.shownCount - 1;
+    const top = Math.min(Math.ceil(this.y0 / this.rowH), last);
+    const bottom = Math.max(top, Math.min(Math.floor((this.y0 + this.height - RULER) / this.rowH) - 1, last));
+    const p = where === 'top' ? top : where === 'bottom' ? bottom : Math.floor((top + bottom) / 2);
+    this.select(this.rowAtPlace(p));
+  }
+
+  /** Scrolls rows so that the selected row sits in the middle, at the top, or at the bottom of the screen, as vim's zz,
+   *  zt, and zb do; time stays where it is. */
+  scrollSelectedTo(where: 'middle' | 'top' | 'bottom'): void {
+    if (this.selected === null || this.placeOf(this.selected) < 0) return;
+    const y = this.placeOf(this.selected) * this.rowH;
+    const room = this.height - RULER;
+    this.y0 = where === 'top' ? y : where === 'bottom' ? y + this.rowH - room : y + this.rowH / 2 - room / 2;
+    this.clamp();
+    this.changed();
+  }
+
+  /** Moves the selected cycle to the selected object's next or previous event, as many times as asked, panning just
+   *  enough to keep it on screen. Without a selected cycle, ] starts before the first event and [ after the last. */
+  async moveEvent(step: 1 | -1, times = 1): Promise<void> {
+    if (this.selected === null) {
+      this.say('Select an object first: ] and [ go through its events.');
+      return;
+    }
+    const i = this.selected;
+    const row = await this.rowAsync(i);
+    if (this.selected !== i) return;
+    const cycles = [...new Set(row.events.map((e) => e.cycle))].sort((a, b) => a - b);
+    let at = this.column ?? (step > 0 ? -Infinity : Infinity);
+    let moved = 0;
+    for (; moved < times; moved++) {
+      const next = step > 0 ? cycles.find((k) => k > at) : [...cycles].reverse().find((k) => k < at);
+      if (next === undefined) break;
+      at = next;
+    }
+    const type = this.source.info.types[row.type].name;
+    if (!moved) this.say(`${objectName(type, row.id)} has no ${step > 0 ? 'later' : 'earlier'} event.`);
+    else this.selectColumn(at, true);
   }
 
   /** Brings a row into view, scrolling only if it is off screen. */
@@ -336,7 +392,7 @@ export class Controller {
     const row = await this.rowAsync(this.selected);
     if (this.placeOf(row.index) < 0) {
       const type = this.source.info.types[row.type].name;
-      if (this.hiddenTypes.has(row.type)) this.say(`${objectName(type, row.id)} is hidden with its type; press ${row.type + 1} to show ${type}.`);
+      if (this.hiddenTypes.has(row.type)) this.say(`${objectName(type, row.id)} is hidden with its type; press z${row.type + 1} to show ${type}.`);
       else this.say(`${objectName(type, row.id)} ended by ${row.endedBy}, and objects that ended abnormally are hidden; press o to show them.`);
       return;
     }

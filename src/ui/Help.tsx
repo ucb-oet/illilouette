@@ -45,7 +45,12 @@ const GROUPS: { name: string; keys: [string[], string][]; examples?: [string, st
       [['Click'], 'Select an object and the cycle'],
       [['↑', '↓'], 'Move the selection a row, keeping its cycle; or k j'],
       [['←', '→'], 'Move the selected cycle; or h l'],
+      [['[', ']'], "Move the selected cycle to the object's previous or next event"],
       [['0', '$'], "Select the object's first or last event's cycle"],
+      [['gg', 'G'], 'Select the first or last row'],
+      [['H', 'M', 'L'], 'Select the top, middle, or bottom row on screen'],
+      [['zz', 'zt', 'zb'], 'Scroll the selected row to the middle, top, or bottom'],
+      [['20', 'j'], 'A count repeats a move: 20j, 5l, 3n, 2]'],
       [['f'], 'Bring the selection into view'],
       [['Esc'], 'Clear the selection and the selected cycle'],
     ],
@@ -62,7 +67,7 @@ const GROUPS: { name: string; keys: [string[], string][]; examples?: [string, st
   {
     name: 'Show',
     keys: [
-      [['1', '–', '9'], 'Show or hide an object type'],
+      [['z1', '–', 'z9'], 'Show or hide an object type'],
       [['t', 'T'], 'Focus the next or previous shown type; the others keep only their bars'],
       [['r'], 'Arrows for everything on screen'],
       [['o'], 'View: types, focus, objects that ended abnormally, arrows'],

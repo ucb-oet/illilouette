@@ -6,6 +6,7 @@ import { fmt, objectName, segmentAt } from '../model/present';
 import { Controller, useController, ZOOM_STEP } from './controller';
 import { DetailPanel } from './DetailPanel';
 import { Header } from './Header';
+import { readKey } from './keys';
 import { Help } from './Help';
 import { DETAIL_NAMES, detailOf } from './render';
 import { applyThemeChoice, loadThemeChoice } from './theme';
@@ -110,37 +111,139 @@ function Viewer({ source, onOpen }: { source: MemorySource; onOpen: (f: File) =>
         }
         return;
       }
+      // Keys are read as vim reads them: a count before a command, such as 20j, and commands of two keys, such as gg.
+      const { pending, command } = readKey(c.keysPending, k);
+      if (pending !== c.keysPending) {
+        c.keysPending = pending;
+        c.changed();
+      }
+      if (!command) {
+        if (pending || k === 'Escape') ev.preventDefault();
+        return;
+      }
+      const n = command.count;
       const x = c.hover ? c.hover.x : c.gutterW + c.plotW / 2;
       const rows = Math.max(1, Math.floor((c.height - 28) / c.rowH));
-      if (k === 'q' || k === 'e') c.zoomTime(x, k === 'e' ? ZOOM_STEP : 1 / ZOOM_STEP, true);
-      else if (k === 'Q' || k === 'E') c.zoomRows(k === 'E' ? ZOOM_STEP : 1 / ZOOM_STEP, c.hover ? c.hover.y : null, true);
-      else if (k === 'w' || k === 's') c.scrollRows((k === 's' ? 1 : -1) * Math.max(c.rowH, (rows * c.rowH) / 8));
-      else if (k === 'a' || k === 'd') c.panTime(((k === 'd' ? 1 : -1) * c.visibleCycles) / 8);
-      else if (k === 'f') void c.focusSelected();
-      else if (k >= '1' && k <= '9') void c.toggleType(Number(k) - 1);
-      else if (k === 'r') c.toggleArrows();
-      else if (k === 't' || k === 'T') c.cycleFocus(k === 't' ? 1 : -1);
-      else if (k === 'n' || k === 'N') void c.nextMatch(k === 'n' ? 1 : -1);
-      else if (k === 'i') c.insertCursor();
-      else if (k === 'I') void c.insertAtSelectedEdge('start');
-      else if (k === 'A') void c.insertAtSelectedEdge('end');
-      else if (k === 'x') c.deleteCursor();
-      else if (k === '0') void c.toSelectedEdge('start');
-      else if (k === '$') void c.toSelectedEdge('end');
-      else if (k === 'Escape' && c.viewOpen) c.toggleView();
-      else if (k === 'Escape') {
-        c.select(null);
-        c.selectColumn(null);
+      const times = (act: () => void) => {
+        for (let j = 0; j < n; j++) act();
+      };
+      switch (command.key) {
+        case 'q':
+        case 'e':
+          times(() => c.zoomTime(x, command.key === 'e' ? ZOOM_STEP : 1 / ZOOM_STEP, true));
+          break;
+        case 'Q':
+        case 'E':
+          times(() => c.zoomRows(command.key === 'E' ? ZOOM_STEP : 1 / ZOOM_STEP, c.hover ? c.hover.y : null, true));
+          break;
+        case 'w':
+        case 's':
+          c.scrollRows((command.key === 's' ? n : -n) * Math.max(c.rowH, (rows * c.rowH) / 8));
+          break;
+        case 'a':
+        case 'd':
+          c.panTime(((command.key === 'd' ? n : -n) * c.visibleCycles) / 8);
+          break;
+        // The selection moves as vim's cursor does: by rows, keeping its column, and by cycles.
+        case 'ArrowDown':
+        case 'j':
+          c.moveSelection(n);
+          break;
+        case 'ArrowUp':
+        case 'k':
+          c.moveSelection(-n);
+          break;
+        case 'ArrowRight':
+        case 'l':
+          void c.moveColumn(n);
+          break;
+        case 'ArrowLeft':
+        case 'h':
+          void c.moveColumn(-n);
+          break;
+        case ']':
+        case '[':
+          void c.moveEvent(command.key === ']' ? 1 : -1, n);
+          break;
+        case 'gg':
+          void c.selectEdgeRow('first');
+          break;
+        case 'G':
+          void c.selectEdgeRow('last');
+          break;
+        case 'H':
+          c.selectScreenRow('top');
+          break;
+        case 'M':
+          c.selectScreenRow('middle');
+          break;
+        case 'L':
+          c.selectScreenRow('bottom');
+          break;
+        case 'zz':
+          c.scrollSelectedTo('middle');
+          break;
+        case 'zt':
+          c.scrollSelectedTo('top');
+          break;
+        case 'zb':
+          c.scrollSelectedTo('bottom');
+          break;
+        case 'n':
+        case 'N':
+          void (async () => {
+            for (let j = 0; j < n; j++) if (!(await c.nextMatch(command.key === 'n' ? 1 : -1))) break;
+          })();
+          break;
+        case 'f':
+          void c.focusSelected();
+          break;
+        case 'r':
+          c.toggleArrows();
+          break;
+        case 't':
+        case 'T':
+          c.cycleFocus(command.key === 't' ? 1 : -1);
+          break;
+        case 'i':
+          c.insertCursor();
+          break;
+        case 'I':
+          void c.insertAtSelectedEdge('start');
+          break;
+        case 'A':
+          void c.insertAtSelectedEdge('end');
+          break;
+        case 'x':
+          c.deleteCursor();
+          break;
+        case '0':
+          void c.toSelectedEdge('start');
+          break;
+        case '$':
+          void c.toSelectedEdge('end');
+          break;
+        case 'Escape':
+          if (c.viewOpen) c.toggleView();
+          else {
+            c.select(null);
+            c.selectColumn(null);
+          }
+          break;
+        case 'o':
+          c.toggleView();
+          break;
+        case '/':
+          document.getElementById('jump')?.focus();
+          break;
+        case '?':
+          c.toggleHelp();
+          break;
+        default:
+          // z1 to z9 show or hide a type; other keys are the browser's.
+          if (/^z[1-9]$/.test(command.key)) void c.toggleType(Number(command.key[1]) - 1);
+          else return;
       }
-      else if (k === 'o') c.toggleView();
-      // The selection moves as vim's cursor does: by rows, keeping its column, and by cycles.
-      else if (k === 'ArrowDown' || k === 'j') c.moveSelection(1);
-      else if (k === 'ArrowUp' || k === 'k') c.moveSelection(-1);
-      else if (k === 'ArrowRight' || k === 'l') void c.moveColumn(1);
-      else if (k === 'ArrowLeft' || k === 'h') void c.moveColumn(-1);
-      else if (k === '/') document.getElementById('jump')?.focus();
-      else if (k === '?') c.toggleHelp();
-      else return;
       ev.preventDefault();
     };
     // A notice stays until the next key, click, or wheel, which clears it before acting.
@@ -232,7 +335,10 @@ function Status({ c }: { c: Controller }) {
   const zoom = `${Number.isInteger(c.cellW) ? c.cellW : c.cellW.toFixed(2)} px/cycle · ${c.rowH} px rows · ${DETAIL_NAMES[detailOf(c)]}`;
   return (
     <footer class="status">
-      <span class="readout">{c.notice ? <span class="notice">{c.notice}</span> : readout}</span>
+      <span class="readout">
+        {/* Keys waiting for the rest of their command, as vim shows them. */}
+        {c.keysPending ? <span class="notice">{c.keysPending}…</span> : c.notice ? <span class="notice">{c.notice}</span> : readout}
+      </span>
       <span>
         {zoom} · <kbd>?</kbd> keys
       </span>

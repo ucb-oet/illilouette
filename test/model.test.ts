@@ -294,6 +294,56 @@ describe.skipIf(!haveFixtures)('Cursors', () => {
   });
 });
 
+describe.skipIf(!haveFixtures)('Vim moves', () => {
+  it('stop at the first and last rows, select rows on screen, and scroll the selection into place', async () => {
+    const c = new Controller(load('rocket-rv64ui-p-add'));
+    c.setSize(1200, 800);
+    await c.home();
+    c.moveSelection(1);
+    c.moveSelection(-5);
+    expect(c.placeOf(c.selected!)).toBe(0);
+    c.moveSelection(9999);
+    expect(c.placeOf(c.selected!)).toBe(c.shownCount - 1);
+    await c.selectEdgeRow('first');
+    expect(c.selected).toBe(c.rowAtPlace(0));
+    await c.selectEdgeRow('last');
+    expect(c.selected).toBe(c.rowAtPlace(c.shownCount - 1));
+    expect(c.rowY(c.selected!) + c.rowH).toBeLessThanOrEqual(c.height);
+    c.y0 = 500 * c.rowH + 7;
+    c.selectScreenRow('top');
+    expect(c.rowY(c.selected!)).toBeGreaterThanOrEqual(RULER);
+    expect(c.rowY(c.selected!)).toBeLessThan(RULER + c.rowH);
+    c.selectScreenRow('bottom');
+    expect(c.rowY(c.selected!) + c.rowH).toBeLessThanOrEqual(c.height);
+    expect(c.rowY(c.selected!) + 2 * c.rowH).toBeGreaterThan(c.height);
+    c.scrollSelectedTo('top');
+    expect(c.rowY(c.selected!)).toBe(RULER);
+    c.scrollSelectedTo('bottom');
+    expect(c.rowY(c.selected!) + c.rowH).toBe(c.height);
+    c.scrollSelectedTo('middle');
+    expect(c.rowY(c.selected!) + c.rowH / 2).toBeCloseTo((RULER + c.height) / 2);
+  });
+
+  it('go through the selected object\'s events with ] and [, counts included', async () => {
+    const c = new Controller(load('rocket-rv64ui-p-add'));
+    c.setSize(1200, 800);
+    await c.home();
+    // instruction#35's events: decode at 594, memory, writeback, and a replay marked and taken at 597.
+    await c.jumpToObject(35, 'instruction');
+    await c.moveEvent(1);
+    expect(c.column).toBe(594);
+    await c.moveEvent(1, 2);
+    expect(c.column).toBe(596);
+    await c.moveEvent(1);
+    expect(c.column).toBe(597);
+    c.say('');
+    await c.moveEvent(1);
+    expect([c.column, c.notice]).toEqual([597, 'instruction#35 has no later event.']);
+    await c.moveEvent(-1, 3);
+    expect(c.column).toBe(594);
+  });
+});
+
 describe.skipIf(!haveFixtures)('Hiding objects that ended abnormally', () => {
   it('closes up their rows, clears a selection of one, and leaves them out of searches', async () => {
     const c = new Controller(load('rocket-rv64ui-p-add'));
