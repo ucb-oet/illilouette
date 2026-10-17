@@ -47,6 +47,8 @@ const GROUPS: { name: string; keys: [string[], string][]; examples?: [string, st
       [['←', '→'], 'Move the selected cycle; or h l'],
       [['[', ']'], "Move the selected cycle to the object's previous or next event"],
       [['0', '$'], "Select the object's first or last event's cycle"],
+      [['{', '}'], 'Move past a row and the rows under it'],
+      [['J', 'K'], 'Next or previous row with anything at the selected cycle'],
       [['gg', 'G'], 'Select the first or last row'],
       [['H', 'M', 'L'], 'Select the top, middle, or bottom row on screen'],
       [['zz', 'zt', 'zb'], 'Scroll the selected row to the middle, top, or bottom'],

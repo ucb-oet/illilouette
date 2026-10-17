@@ -165,6 +165,14 @@ function Viewer({ source, onOpen }: { source: MemorySource; onOpen: (f: File) =>
         case '[':
           void c.moveEvent(command.key === ']' ? 1 : -1, n);
           break;
+        case '}':
+        case '{':
+          void c.moveParagraph(command.key === '}' ? 1 : -1, n);
+          break;
+        case 'J':
+        case 'K':
+          void c.moveInColumn(command.key === 'J' ? 1 : -1, n);
+          break;
         case 'gg':
           void c.selectEdgeRow('first');
           break;

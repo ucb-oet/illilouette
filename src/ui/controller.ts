@@ -1,7 +1,7 @@
 // The viewer's state and navigation, shared by the canvas, which redraws from it, and the Preact panels, which
 // subscribe to it. Rows come from the source in chunks and are cached here.
 import { useEffect, useState } from 'preact/hooks';
-import { fmt, objectName } from '../model/present';
+import { fmt, objectName, segmentAt } from '../model/present';
 import { parseQuery, type Match, type TypeWords } from '../model/search';
 import type { RowFilter, RowView, Source } from '../model/source';
 import { CHAR_EM, labelColumns, labelFontSize } from './labels';
@@ -324,6 +324,62 @@ export class Controller {
     const p = this.selected === null ? -1 : this.placeOf(this.selected);
     const next = p < 0 ? Math.floor(this.y0 / this.rowH) : Math.min(Math.max(p + delta, 0), this.shownCount - 1);
     if (next !== p) this.select(this.rowAtPlace(next), true);
+  }
+
+  /** A row's depth among the rows shown: how many of its ancestors' types are shown, as its type name's indent is. */
+  private depthOf(r: RowView): number {
+    return r.ancestorTypes.filter((t) => !this.hiddenTypes.has(t)).length;
+  }
+
+  /** Moves the selection by paragraphs, as vim's } and { do: a paragraph is a row and the rows under it, so } goes past
+   *  the selected row's children to the next row as shallow or shallower, and { back to the previous one. In a trace
+   *  without parents, every row is a paragraph. With nothing selected, selects the top row on screen. */
+  async moveParagraph(step: 1 | -1, times = 1): Promise<void> {
+    if (this.shownCount === 0) return;
+    if (this.selected === null || this.placeOf(this.selected) < 0) return this.moveSelection(step);
+    const start = this.selected;
+    const depth = this.depthOf(await this.rowAsync(start));
+    let p = this.placeOf(start);
+    for (let moved = 0; moved < times; moved++) {
+      let q = p + step;
+      while (q >= 0 && q < this.shownCount && this.depthOf(await this.rowAsync(this.rowAtPlace(q))) > depth) q += step;
+      if (q < 0 || q >= this.shownCount) break;
+      p = q;
+    }
+    if (this.selected !== start) return;
+    if (p !== this.placeOf(start)) this.select(this.rowAtPlace(p), true);
+  }
+
+  /** Whether a row has anything at a cycle: a cell, or an event. */
+  private hasAt(r: RowView, cycle: number): boolean {
+    return segmentAt(r, cycle) !== null || r.events.some((e) => e.cycle === cycle);
+  }
+
+  /** Moves the selection down or up the selected cycle's column, to the next row with anything at that cycle, keeping
+   *  the cycle. With nothing selected, J starts from the top of the rows shown, so that it finds the first such row,
+   *  and K from the bottom. */
+  async moveInColumn(step: 1 | -1, times = 1): Promise<void> {
+    const cycle = this.column;
+    if (cycle === null) {
+      this.say('Select a cycle first: click one, or press h or l; J and K go down and up its column.');
+      return;
+    }
+    const start = this.selected;
+    let p = start === null || this.placeOf(start) < 0 ? (step > 0 ? -1 : this.shownCount) : this.placeOf(start);
+    let found = false;
+    for (let moved = 0; moved < times; moved++) {
+      let q = p + step;
+      while (q >= 0 && q < this.shownCount && !this.hasAt(await this.rowAsync(this.rowAtPlace(q)), cycle)) q += step;
+      if (q < 0 || q >= this.shownCount) break;
+      p = q;
+      found = true;
+    }
+    if (this.selected !== start || this.column !== cycle) return;
+    if (!found) {
+      this.say(`No object ${step > 0 ? 'below' : 'above'} has anything at cycle ${fmt(cycle)}.`);
+      return;
+    }
+    this.select(this.rowAtPlace(p), true);
   }
 
   /** Selects the first or last row shown, as vim's gg and G go to the first and last line, and brings it into view as

@@ -344,6 +344,56 @@ describe.skipIf(!haveFixtures)('Vim moves', () => {
   });
 });
 
+describe.skipIf(!haveFixtures)('Paragraphs and columns', () => {
+  it('move by a row and the rows under it with } and {', async () => {
+    const c = new Controller(load('rocket-rv64ui-p-add'));
+    c.setSize(1200, 800);
+    await c.home();
+    const row = (type: number, id: number) => c.source.find(id, type) as Promise<number>;
+    // Rows open fetch#0, instruction#0, fetch#1, instruction#1: } from a packet skips its instruction.
+    c.select(await row(FETCH, 0));
+    await c.moveParagraph(1);
+    expect(c.selected).toBe(await row(FETCH, 1));
+    await c.moveParagraph(-1);
+    expect(c.selected).toBe(await row(FETCH, 0));
+    await c.moveParagraph(1, 3);
+    expect(c.selected).toBe(await row(FETCH, 3));
+    // From an instruction, } goes to the next row no deeper: here the next packet.
+    c.select(await row(INSTRUCTION, 0));
+    await c.moveParagraph(1);
+    expect(c.selected).toBe(await row(FETCH, 1));
+    // With packets hidden, instructions are the top level, and } goes from one to the next.
+    await c.toggleType(FETCH);
+    c.select(await row(INSTRUCTION, 0));
+    await c.moveParagraph(1);
+    expect(c.selected).toBe(await row(INSTRUCTION, 1));
+  });
+
+  it('walk down and up the selected cycle with J and K, starting from the top with nothing selected', async () => {
+    const c = new Controller(load('rocket-rv64ui-p-add'));
+    c.setSize(1200, 800);
+    await c.home();
+    const all = await c.source.rows(0, c.source.info.rowCount);
+    const at = all.filter((r) => segmentAt(r, 1511) !== null || r.events.some((e) => e.cycle === 1511)).map((r) => r.index);
+    expect(at.length).toBeGreaterThan(2);
+    await c.moveInColumn(1);
+    expect(c.notice).toMatch(/^Select a cycle first/);
+    c.selectColumn(1511);
+    await c.moveInColumn(1);
+    expect(c.selected).toBe(at[0]);
+    await c.moveInColumn(1, 2);
+    expect(c.selected).toBe(at[2]);
+    await c.moveInColumn(-1);
+    expect([c.selected, c.column]).toEqual([at[1], 1511]);
+    c.select(null);
+    await c.moveInColumn(-1);
+    expect(c.selected).toBe(at[at.length - 1]);
+    c.say('');
+    await c.moveInColumn(1);
+    expect(c.notice).toBe('No object below has anything at cycle 1,511.');
+  });
+});
+
 describe.skipIf(!haveFixtures)('Hiding objects that ended abnormally', () => {
   it('closes up their rows, clears a selection of one, and leaves them out of searches', async () => {
     const c = new Controller(load('rocket-rv64ui-p-add'));
