@@ -55,8 +55,8 @@ describe.skipIf(!haveFixtures)('Searching rv64ui-p-add', () => {
     expect((await run('instruction.*.cause=load_use')).matches.length).toBe(2);
     expect((await run('instruction.flush')).matches.length).toBe(53);
     expect((await run('fetch.miss', [FETCH])).skipped).toBe(31);
-    const times = (await run('instruction.flush')).matches.map((m) => m.cycle);
-    expect(times).toEqual([...times].sort((a, b) => a - b));
+    const rows = (await run('instruction.flush')).matches.map((m) => m.row);
+    expect(rows).toEqual([...rows].sort((a, b) => a - b));
   });
 
   it('says what is wrong, listing the names the file has', async () => {
@@ -82,7 +82,7 @@ describe.skipIf(!haveFixtures)('Searching rv64ui-p-add', () => {
 });
 
 describe.skipIf(!haveFixtures)('Moving through matches', () => {
-  it('goes on in time order from the selection, round past the last, and follows hidden types', async () => {
+  it('goes on down the rows from the selection, round past the last, and follows hidden types', async () => {
     const c = new Controller(load('rocket-rv64ui-p-add'));
     c.setSize(1200, 800);
     await c.home();
@@ -100,6 +100,17 @@ describe.skipIf(!haveFixtures)('Moving through matches', () => {
     await c.nextMatch(-1);
     expect(c.matchAt).toBe(all.length - 1);
     expect(c.notice).toMatch(/on to the last/);
+    // Each n goes further down the rows.
+    await c.setSearch('instruction.flush');
+    c.select(null);
+    c.y0 = 0;
+    const places: number[] = [];
+    for (let j = 0; j < 10; j++) {
+      await c.nextMatch(1);
+      places.push(c.placeOf(c.selected!));
+    }
+    expect(places).toEqual([...places].sort((a, b) => a - b));
+    expect(new Set(places).size).toBe(10);
     await c.setSearch('*.pc=0x80000050');
     expect(c.search!.matches.length).toBe(3);
     await c.toggleType(FETCH);

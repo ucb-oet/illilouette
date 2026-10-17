@@ -136,7 +136,7 @@ export class MemorySource implements Source {
       if (hides(filter, r)) skipped++;
       else matches.push({ row: i, cycle });
     });
-    matches.sort((a, b) => a.cycle - b.cycle || a.row - b.row);
+    // Rows are visited in order, so the matches are in the order the rows are listed.
     return { matches, skipped };
   }
 

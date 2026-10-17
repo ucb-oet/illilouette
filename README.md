@@ -85,7 +85,7 @@ Type a search in the jump box. It takes one term, with no patterns to learn:
 
 Values match whole: numbers by value, so `0x80000050` matches `0x0080000050`; causes and other fixed choices by name; objects as `type#id`. Tab completes the file's own types, fields, events, and the values a field takes when they are few. A name the file does not have gets a message listing the ones it does.
 
-The box counts the matches as you type. Enter goes to the first match after the selection, selecting the object and the cycle, and hands the keys back; `n` and `N` then go on through the matches, in time order. Matching rows are marked at the left of the label column and on the timeline bar. Objects of hidden types are left out, and the count says how many. Emptying the box ends the search.
+The box counts the matches as you type. Enter goes to the first match after the selection, selecting the object and the cycle, and hands the keys back; `n` and `N` then go on through the matches, down and up the rows, as vim's `n` goes through a buffer. Matching rows are marked at the left of the label column and on the timeline bar. Objects of hidden types are left out, and the count says how many. Emptying the box ends the search.
 
 ## Layout
 

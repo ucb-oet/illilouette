@@ -19,7 +19,7 @@ export interface Match {
 }
 
 export interface SearchResult {
-  /** In time order, then row order. */
+  /** In the order the rows are listed, top to bottom. */
   matches: Match[];
   /** Matching objects of hidden types, which are left out. */
   skipped: number;

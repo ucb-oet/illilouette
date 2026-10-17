@@ -86,8 +86,8 @@ export class Controller {
   naming: number | null = null;
   /** Whether the list of keys is open. */
   helpOpen = false;
-  /** The search in the jump box: its text, what is wrong with it if anything, its matches in time order, the rows they
-   *  are on, and how many matching objects are of hidden types. Null while the box holds no search. */
+  /** The search in the jump box: its text, what is wrong with it if anything, its matches in row order, the rows they
+   *  are on, and how many matching objects are hidden. Null while the box holds no search. */
   search: { text: string; error: string | null; matches: Match[]; rows: Set<number>; skipped: number } | null = null;
   /** The file's names for searches, once read. */
   words: TypeWords[] | null = null;
@@ -611,9 +611,9 @@ export class Controller {
     return s ? s.matches.findIndex((m) => m.row === this.selected && m.cycle === this.column) : -1;
   }
 
-  /** Goes to the next or previous match, in time order, from the selected object and cycle, or else from a third of
-   *  the way into the view, as vim's n and N do; past the last, it goes round to the first. Says why when there is
-   *  nowhere to go, and returns whether it went. */
+  /** Goes to the next or previous match down or up the rows, as vim's n and N go through a buffer: from the selected
+   *  object, or else from the top of the rows on screen. Past the last, it goes round to the first. Says why when there
+   *  is nowhere to go, and returns whether it went. */
   async nextMatch(step: 1 | -1): Promise<boolean> {
     const s = this.search;
     if (!s) {
@@ -628,12 +628,13 @@ export class Controller {
       this.say(`Nothing matches ${s.text}${s.skipped ? `, apart from ${s.skipped} hidden objects` : ''}.`);
       return false;
     }
-    const cycle = this.column ?? Math.floor(this.x0 + this.visibleCycles / 3);
-    const row = this.selected ?? -1;
-    const after = (m: Match) => m.cycle > cycle || (m.cycle === cycle && m.row > row);
+    // Where the view is among the rows shown; with nothing selected, just above the top row on screen, so that n finds
+    // a match on it.
+    const sel = this.selected === null ? -1 : this.placeOf(this.selected);
+    const here = sel >= 0 ? sel : Math.floor(this.y0 / this.rowH) - 0.5;
     let k = -1;
-    if (step > 0) k = s.matches.findIndex(after);
-    else for (let j = s.matches.length - 1; j >= 0 && k < 0; j--) if (!after(s.matches[j]) && !(s.matches[j].cycle === cycle && s.matches[j].row === row)) k = j;
+    if (step > 0) k = s.matches.findIndex((m) => this.placeOf(m.row) > here);
+    else for (let j = s.matches.length - 1; j >= 0 && k < 0; j--) if (this.placeOf(s.matches[j].row) < here) k = j;
     if (k < 0) {
       k = step > 0 ? 0 : s.matches.length - 1;
       if (s.matches.length > 1) this.say(step > 0 ? 'Past the last match; back to the first.' : 'Before the first match; on to the last.');
