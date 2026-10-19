@@ -1,49 +1,21 @@
-import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { Reader } from '../src/file/pb';
 import { decodeWaterfall, WaterfallError } from '../src/file/waterfall';
-
-const fixture = (name: string) => new Uint8Array(readFileSync(new URL(`./fixtures/${name}`, import.meta.url)));
-// The fixtures are waterfall files that Chipyard's `eventtrace waterfall` wrote, copied in; they are not kept in the
-// repo. The README says where each comes from.
-const haveFixtures = existsSync(new URL('./fixtures/rocket-rv64ui-p-add.waterfall', import.meta.url));
-
-describe.skipIf(!haveFixtures)('decodeWaterfall on Chipyard’s files', () => {
-  it('reads Sodor’s traces', () => {
-    const add = decodeWaterfall(fixture('sodor-rv32ui-p-add.waterfall'));
-    expect(add.rows).toHaveLength(4707);
-    const illegal = decodeWaterfall(fixture('sodor-rv32mi-p-illegal.waterfall'));
-    const trap = illegal.rows.find((r) => r.id === 3470)!;
-    expect(illegal.strings[trap.endedBy]).toBe('trap');
-    expect(trap.normalEnd).toBe(false);
-    expect(illegal.rows.every((r) => r.parent === null)).toBe(true);
-  });
-
-  it('reads Rocket’s two types, each instruction under the packet its decode names', () => {
-    const w = decodeWaterfall(fixture('rocket-rv64ui-p-add.waterfall'));
-    const t = w.strings;
-    // Parents' type first, as Rocket's view lists it.
-    expect(w.types.map((x) => [t[x.name], x.stages.map((s) => t[s])])).toEqual([
-      ['fetch', ['S1', 'S2', 'Miss', 'Queue', 'Buffer']],
-      ['instruction', ['Decode', 'Execute', 'Memory', 'Writeback']],
-    ]);
-    const [FETCH, INSTRUCTION] = [0, 1];
-    expect(w.rows).toHaveLength(2080);
-    w.rows.forEach((r, i) => {
-      // Each object is drawn from the cycle of the event that creates it, in Decode or S1.
-      expect(r.segments[0].from).toBe(r.events[0].cycle);
-      expect(t[w.types[r.type].stages[r.segments[0].stage]]).toBe(r.type === INSTRUCTION ? 'Decode' : 'S1');
-      if (r.type === FETCH) return expect(r.parent).toBeNull();
-      expect(r.parent).toBeLessThan(i);
-      expect(w.rows[r.parent!].type).toBe(FETCH);
-      const fetch = r.events[0].fields.find((f) => t[f.name] === 'fetch')!;
-      expect(fetch.row).toBe(r.parent);
-      expect(t[fetch.text]).toBe(`fetch#${w.rows[r.parent!].id}`);
-    });
-  });
-});
+import { encode, pipeline, staircase } from './build';
 
 describe('decodeWaterfall', () => {
+  it('reads back every field of a file', () => {
+    const w = pipeline();
+    expect(decodeWaterfall(encode(w))).toEqual(w);
+  });
+
+  it('tells a parent at row 0 from none, and a live object from one that ended', () => {
+    const stairs = decodeWaterfall(encode(staircase(3)));
+    expect(stairs.rows.map((r) => r.parent)).toEqual([null, 0, null, 2, null, 4]);
+    const w = decodeWaterfall(encode(pipeline()));
+    expect([w.rows[2].end, w.rows[12].end]).toEqual([16, null]);
+  });
+
   it('rejects a file of another format version', () => {
     // version = 2
     expect(() => decodeWaterfall(new Uint8Array([0x08, 0x02]))).toThrow(
@@ -51,8 +23,8 @@ describe('decodeWaterfall', () => {
     );
   });
 
-  it.skipIf(!haveFixtures)('rejects a file cut short', () => {
-    const bytes = fixture('sodor-rv32ui-p-add.cycle-48079-to-flush.waterfall');
+  it('rejects a file cut short', () => {
+    const bytes = encode(pipeline());
     expect(() => decodeWaterfall(bytes.subarray(0, bytes.length - 3))).toThrow(WaterfallError);
   });
 });

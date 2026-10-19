@@ -1,14 +1,7 @@
-import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { decodeWaterfall } from '../src/file/waterfall';
 import { MemorySource } from '../src/model/memory';
 import { labelHolds, parseQuery, sameValue, suggest, type Query } from '../src/model/search';
-import { Controller } from '../src/ui/controller';
-
-const load = (name: string) =>
-  new MemorySource(decodeWaterfall(new Uint8Array(readFileSync(new URL(`./fixtures/${name}.waterfall`, import.meta.url)))));
-const haveFixtures = existsSync(new URL('./fixtures/rocket-rv64ui-p-add.waterfall', import.meta.url));
-const [FETCH, INSTRUCTION] = [0, 1];
+import { FETCH, INSTRUCTION, open, pipeline, staircase } from './build';
 
 describe('Values and labels', () => {
   it('compare numbers by value and other texts whole, ignoring case', () => {
@@ -26,37 +19,40 @@ describe('Values and labels', () => {
   });
 });
 
-describe.skipIf(!haveFixtures)('Searching rv64ui-p-add', () => {
-  const source = haveFixtures ? load('rocket-rv64ui-p-add') : (undefined as never);
+describe('Searching the pipeline', () => {
+  const source = new MemorySource(pipeline());
   const run = async (text: string, hidden: number[] = []) => {
     const q = parseQuery(text, await source.words());
     if ('error' in q) throw new Error(q.error);
     return source.search(q as Query, { types: new Set(hidden), abnormal: false });
   };
+  const rows = async (text: string) => (await run(text)).matches.map((m) => m.row);
   const error = async (text: string) => {
     const q = parseQuery(text, await source.words());
     return 'error' in q ? q.error : null;
   };
 
-  it('finds labels, own fields, events, and their fields', async () => {
-    expect((await run('csrr')).matches.length).toBe(8);
-    expect((await run('fence.i')).matches.length).toBe(0);
-    // The instruction at 0x80000050, the jump to it, and their packets; with fetch hidden, the packets are skipped.
-    expect((await run('0x80000050')).matches.length).toBe(4);
-    expect(await run('0x80000050', [FETCH])).toMatchObject({ skipped: 2 });
-    expect((await run('instruction.pc=0x80000050')).matches).toEqual([{ row: (await source.find(60, INSTRUCTION))!, cycle: 1511 }]);
-    expect((await run('*.pc=0x80000050')).matches.length).toBe(3);
-    const nacks = await run('instruction.mark_replay.cause=cache_nack');
-    expect(nacks.matches.length).toBe(4);
-    for (const m of nacks.matches) {
-      const [r] = await source.rows(m.row, m.row + 1);
-      expect(r.events.find((e) => e.cycle === m.cycle)?.name).toBe('instruction.mark_replay');
-    }
-    expect((await run('instruction.*.cause=load_use')).matches.length).toBe(2);
-    expect((await run('instruction.flush')).matches.length).toBe(53);
-    expect((await run('fetch.miss', [FETCH])).skipped).toBe(31);
-    const rows = (await run('instruction.flush')).matches.map((m) => m.row);
-    expect(rows).toEqual([...rows].sort((a, b) => a - b));
+  it('finds label text, and a 0x number among the labels\' numbers, a jump\'s target included', async () => {
+    expect(await rows('addi')).toEqual([2]);
+    expect(await rows('A0')).toEqual([2, 4, 7, 9]);
+    expect(await rows('0x104')).toEqual([3, 4]);
+    // instruction#4 at 0x200, and instruction#2, whose branch targets it.
+    expect(await rows('0x200')).toEqual([7, 10]);
+    expect(await rows('fence.i')).toEqual([]);
+  });
+
+  it('finds an object\'s own field, an event\'s field, and an event, landing on the cycle that matched', async () => {
+    expect((await run('instruction.pc=0x104')).matches).toEqual([{ row: 4, cycle: 15 }]);
+    expect(await rows('*.pc=0x104')).toEqual([3, 4]);
+    expect((await run('instruction.mark_replay.cause=cache_nack')).matches).toEqual([{ row: 9, cycle: 23 }]);
+    expect((await run('instruction.*.cause=cache_nack')).matches).toEqual([{ row: 9, cycle: 23 }]);
+    expect((await run('fetch.miss.cause=cache')).matches).toEqual([{ row: 3, cycle: 12 }]);
+    expect((await run('instruction.squash')).matches).toEqual([{ row: 7, cycle: 19 }]);
+    expect((await run('instruction.decode.blocker=instruction#0')).matches).toEqual([{ row: 4, cycle: 15 }]);
+  });
+
+  it('leaves out objects of hidden types, and counts them', async () => {
+    expect(await run('*.pc=0x104', [FETCH])).toEqual({ matches: [{ row: 4, cycle: 15 }], skipped: 1 });
   });
 
   it('says what is wrong, listing the names the file has', async () => {
@@ -66,29 +62,32 @@ describe.skipIf(!haveFixtures)('Searching rv64ui-p-add', () => {
     expect(await error('instruction.retire.foo=1')).toBe('retire has no fields.');
     expect(await error('instruction.mark_replay.cause')).toBe('Give the field a value, as in instruction.mark_replay.cause=…');
     expect(await error('instruction.mark_replay.*=x')).toBe('* stands for a type or an event, not a field.');
+    expect(await error('*.bogus=3')).toBe('No type has a field bogus. The fields are pc, bits, fetch.');
   });
 
-  it('completes types, fields, events, and few values', async () => {
+  it('completes types, fields, events, and the values of a field that takes few', async () => {
     const words = await source.words();
     const texts = (q: string) => suggest(q, words).map((s) => s.text);
     expect(texts('ins')).toEqual(['instruction.']);
     expect(texts('instruction.m')).toEqual(['instruction.memory', 'instruction.mark_replay']);
     expect(texts('instruction.mark_replay.')).toEqual(['instruction.mark_replay.cause=']);
-    expect(texts('instruction.mark_replay.cause=ca')).toEqual(['instruction.mark_replay.cause=cache_busy', 'instruction.mark_replay.cause=cache_nack']);
-    // An address takes too many values to offer, and label text has nothing to complete.
-    expect(texts('instruction.pc=0x')).toEqual([]);
-    expect(texts('csrr')).toEqual([]);
+    expect(texts('instruction.decode.stall=')).toEqual(['instruction.decode.stall=scoreboard']);
+    // Label text has nothing to complete.
+    expect(texts('addi')).toEqual([]);
+  });
+
+  it('offers no values for a field that takes too many', async () => {
+    const words = await new MemorySource(staircase(40)).words();
+    expect(suggest('instruction.fetch=f', words)).toEqual([]);
   });
 });
 
-describe.skipIf(!haveFixtures)('Moving through matches', () => {
-  it('goes on down the rows from the selection, round past the last, and follows hidden types', async () => {
-    const c = new Controller(load('rocket-rv64ui-p-add'));
-    c.setSize(1200, 800);
-    await c.home();
+describe('Moving through matches', () => {
+  it('goes down the rows from the selection, round past the last, and follows hidden types', async () => {
+    const c = await open(staircase(300));
     expect(await c.nextMatch(1)).toBe(false);
     expect(c.notice).toMatch(/^Nothing is searched/);
-    await c.setSearch('instruction.mark_replay.cause=cache_nack');
+    await c.setSearch('instruction.squash');
     const all = c.search!.matches;
     expect(await c.nextMatch(1)).toBe(true);
     expect([c.selected, c.column, c.matchAt]).toEqual([all[0].row, all[0].cycle, 0]);
@@ -101,7 +100,6 @@ describe.skipIf(!haveFixtures)('Moving through matches', () => {
     expect(c.matchAt).toBe(all.length - 1);
     expect(c.notice).toMatch(/on to the last/);
     // Each n goes further down the rows.
-    await c.setSearch('instruction.flush');
     c.select(null);
     c.y0 = 0;
     const places: number[] = [];
@@ -111,12 +109,13 @@ describe.skipIf(!haveFixtures)('Moving through matches', () => {
     }
     expect(places).toEqual([...places].sort((a, b) => a - b));
     expect(new Set(places).size).toBe(10);
-    await c.setSearch('*.pc=0x80000050');
-    expect(c.search!.matches.length).toBe(3);
-    await c.toggleType(FETCH);
-    expect([c.search!.matches.length, c.search!.skipped]).toEqual([1, 2]);
+    // Hiding a type searches again, leaving it out.
+    await c.setSearch('*.fetch=fetch#3');
+    expect(c.search!.matches.length).toBe(1);
+    await c.toggleType(INSTRUCTION);
+    expect([c.search!.matches.length, c.search!.skipped]).toEqual([0, 1]);
     await c.setSearch('instruction.pcc=1');
     expect(await c.nextMatch(1)).toBe(false);
-    expect(c.notice).toBe('instruction has no field pcc. Its fields are bits, fetch, pc.');
+    expect(c.notice).toBe('instruction has no field pcc. Its fields are fetch.');
   });
 });

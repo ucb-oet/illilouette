@@ -24,7 +24,7 @@ Node 24 or later:
 ```sh
 npm install
 npm run dev        # serves the page with live reload
-npm test           # decodes the fixtures and checks their rows
+npm test           # runs the tests, and the smoke tests over Chipyard's waterfall files
 npm run build      # type-checks, then writes the static page to dist/
 ```
 
@@ -93,9 +93,13 @@ The box counts the matches as you type. Enter goes to the first match after the 
 - `src/file/`: protobuf decoding of the file.
 - `src/model/`: the source interface the drawing code reads rows through, the in-memory source, and text derived for display.
 - `src/ui/`: the page: controller, canvas renderer, timeline bar, detail panel, header.
-- `test/fixtures/`: waterfall files that Chipyard's `eventtrace waterfall` wrote, copied in and not kept in the repo; the tests skip without them:
-  - `rocket-rv64ui-p-add.waterfall`: `sims/verilator/output/rocket-fetch/rv64ui-p-add.waterfall`, instructions under fetch packets;
-  - `sodor-<test>.waterfall`, for `rv32ui-p-add`, `rv32mi-p-illegal`, and `rv32ui-p-add.cycle-48079-to-flush`: written with `reader/sodor/view.json` from `sims/verilator/output/<long name>/<test>.trace`.
+- `test/`: tests on small waterfall files built in code (`test/build.ts`), which pin exact values, and smoke tests (`test/files.test.ts`) over every waterfall file under `test/fixtures`, a link to a Chipyard checkout's output that is not kept in the repo:
+
+  ```sh
+  ln -s <chipyard>/sims/verilator/output test/fixtures
+  ```
+
+  Each file there must decode, hold together as the viewer reads it, and run every feature, drawing included, without breaking. Without the link, one test fails and says how to make it.
 
 ## Not yet
 

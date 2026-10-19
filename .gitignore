@@ -2,5 +2,5 @@ node_modules/
 dist/
 *.log
 .DS_Store
-# Waterfall files copied from a Chipyard checkout; not kept in the repo.
-test/fixtures/
+# A link to a Chipyard checkout's sims/verilator/output, whose waterfall files are smoke-tested; not kept in the repo.
+test/fixtures
