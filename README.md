@@ -43,7 +43,7 @@ Letters are as typed: a capital takes Shift.
 | `Q` / `E` | Zoom rows |
 | `w` `a` `s` `d` | Move up, left, down, right |
 | Hover a label | The object, its whole label, and how it ended |
-| Click | Select an object and the cycle; its arrows and details appear |
+| Click | Select an object and the cycle; its links and details appear |
 | `f` | Bring the selection into view, its first event a third of the way in |
 | `↑` `↓` or `k` `j` | Move the selection a row, keeping its cycle, and scrolling rows only |
 | `←` `→` or `h` `l` | Move the selected cycle; from the selected object's first event when none is selected |
@@ -61,15 +61,15 @@ Letters are as typed: a capital takes Shift.
 | `i` | Put a cursor on the edge where the selected cycle starts, as vim's `i` inserts before the cursor, and name it: type a name, or keep its cycle, then Enter or `Esc`. The ruler shows each cursor, and between neighbors the gap, such as `Δ 4` |
 | `I` / `A` | Put a cursor at the selected object's start, or after its end, as vim's `I` and `A` insert at the start and end of the line; selects its first or last event's cycle, as `0` and `$` do |
 | `x` | Remove the cursor at the selected cycle: on the edge where it starts, or else the edge after it |
-| `r` | Show or hide arrows for everything on screen; none show once zoomed out a step past where the label column loses its text or the cells their letters |
+| `r` | Show or hide links for everything on screen; none show once zoomed out a step past where the label column loses its text or the cells their letters |
 | `/` | Jump to a cycle (`41440`) or an object (`#3454`, `instruction#3454`), or search; once it lands, keys move the view again |
 | `n` / `N` | Go to the next or previous match of the search |
-| `o` | Open the view panel: types shown and in focus, objects that ended abnormally, arrows. It leaves the waterfall usable; anything hidden shows as a count in the header and a dot on its button |
+| `o` | Open the view panel: types shown and in focus, aborted objects, the kinds of link shown. It leaves the waterfall usable; anything hidden shows as a count in the header and a dot on its button |
 | `?` | List these keys |
 
 Rows come in the file's order. An object with a parent sits under it, such as a Rocket instruction under the fetch packet it decoded from, its type name indented; hiding the parent's type takes the indent away.
 
-How much a row shows follows the zoom: lettered cells up close, one run per stage in the middle, solid rows far out. One object type is in focus and drawn in full; every other type keeps only the bar along the bottom of its cells, so that packets and instructions, say, tell apart. Hatched cycles, or a dashed bar in a type not in focus, are cycles in which an object was held in its stage. A dot marks an event that describes an object without moving or ending it, such as a stall. A red cap marks an object that left without its type's normal end, such as a squashed instruction.
+How much a row shows follows the zoom: lettered cells up close, one run per stage in the middle, solid rows far out. One object type is in focus and drawn in full; every other type keeps only the bar along the bottom of its cells, so that packets and instructions, say, tell apart. Hatched cycles, or a dashed bar in a type not in focus, are cycles in which an object was held in its stage. An amber dot marks an event that finds its object blocked, such as a stall; a smaller gray dot marks any other event that describes an object without moving or ending it. A red cap marks an aborted object, one that ended other than by its type's normal end, such as a squashed instruction. Links join an object to each object its events name, colored by what that object is to it: red for what aborted it, amber for what blocks it, and gray for anything else, such as its parent. A link has no arrowhead: it runs into the mark it explains, the amber dot or the red cap. The view panel picks which kinds show; parents start hidden, since the rows' order and indent already show them.
 
 ## Searching
 

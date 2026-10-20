@@ -1,8 +1,8 @@
 // A source over a waterfall file loaded whole in the browser.
-import type { Row, Waterfall } from '../file/waterfall';
+import type { Field, Row, Waterfall } from '../file/waterfall';
 import { shortName } from './present';
 import { labelHolds, MAX_OFFERED_VALUES, sameValue, type FieldWords, type Match, type Query, type SearchResult, type TypeWords } from './search';
-import type { Info, Referrer, RowFilter, RowView, Source, TypeSummary } from './source';
+import { linkKind, type LinkKind, type Info, type Referrer, type RowFilter, type RowView, type Source, type TypeSummary } from './source';
 
 export class MemorySource implements Source {
   readonly info: Info;
@@ -42,6 +42,7 @@ export class MemorySource implements Source {
         return { name: t[type.name], stages: type.stages.map((s) => t[s]), labelWidths, idWidth, ancestorTypes: ancestors };
       }),
       summary: w.types.map((type, ti) => summarize(t[type.name], ti, w)),
+      links: countLinks(w),
     };
   }
 
@@ -97,7 +98,7 @@ export class MemorySource implements Source {
           for (const f of e.fields) {
             if (f.row === null || f.row === i) continue;
             const list = map.get(f.row) ?? [];
-            list.push({ row: i, cycle: e.cycle, event: t[this.w.sites[e.site].event], field: t[f.name] });
+            list.push({ row: i, cycle: e.cycle, event: t[this.w.sites[e.site].event], field: t[f.name], role: f.role });
             map.set(f.row, list);
           }
         }
@@ -179,7 +180,7 @@ export class MemorySource implements Source {
     const t = w.strings;
     const r: Row = w.rows[i];
     const lastTo = r.end ?? w.lastCycle + 1;
-    const fieldView = (f: { name: number; text: number; row: number | null }) => ({ name: t[f.name], text: t[f.text], row: f.row });
+    const fieldView = (f: Field) => ({ name: t[f.name], text: t[f.text], row: f.row, role: f.role });
     const view: RowView = {
       index: i,
       type: r.type,
@@ -200,7 +201,15 @@ export class MemorySource implements Source {
       ancestorTypes: ancestorTypes(w, r),
       events: r.events.map((e) => {
         const site = w.sites[e.site];
-        return { cycle: e.cycle, name: t[site.event], source: t[site.source], instance: t[site.instance], effect: e.effect, fields: e.fields.map(fieldView) };
+        return {
+          cycle: e.cycle,
+          name: t[site.event],
+          source: t[site.source],
+          instance: t[site.instance],
+          effect: e.effect,
+          blocks: site.blocks,
+          fields: e.fields.map(fieldView),
+        };
       }),
     };
     this.views[i] = view;
@@ -208,9 +217,9 @@ export class MemorySource implements Source {
   }
 }
 
-/** Whether a filter hides a row: by its type, or as an object that ended without its type's normal end. */
+/** Whether a filter hides a row: by its type, or as an aborted object. */
 function hides(filter: RowFilter, r: Row): boolean {
-  return filter.types.has(r.type) || (filter.abnormal && r.end !== null && !r.normalEnd);
+  return filter.types.has(r.type) || (filter.aborted && r.end !== null && !r.normalEnd);
 }
 
 function ancestorTypes(w: Waterfall, r: Row): number[] {
@@ -218,6 +227,15 @@ function ancestorTypes(w: Waterfall, r: Row): number[] {
   // Parents come before their children, so a well-formed file cannot loop; the bound guards a malformed one.
   for (let p = r.parent; p !== null && p < w.rows.length && types.length < 64; p = w.rows[p].parent) types.push(w.rows[p].type);
   return types;
+}
+
+/** The file's links by kind: event fields naming another row, as the waterfall draws them. */
+function countLinks(w: Waterfall): Record<LinkKind, number> {
+  const n: Record<LinkKind, number> = { aborted: 0, blocked: 0, other: 0 };
+  w.rows.forEach((r, i) => {
+    for (const e of r.events) for (const f of e.fields) if (f.row !== null && f.row !== i) n[linkKind(f.role)]++;
+  });
+  return n;
 }
 
 function summarize(name: string, type: number, w: Waterfall): TypeSummary {

@@ -13,11 +13,13 @@ export interface Theme {
   subtext0: string;
   subtext1: string;
   text: string;
-  /** Marks an object that left without its type's normal end. */
+  /** Marks an object that left without its type's normal end, and links from what aborted it. */
   killed: string;
-  /** Dots for events that describe an object without moving or ending it. */
+  /** Dots for events that find their object blocked, and links from what blocks it. */
+  blocked: string;
+  /** Dots for other events that describe an object without moving or ending it. */
   event: string;
-  /** Selection and arrows. */
+  /** The selection. */
   accent: string;
   /** Stage colors, in stage order; a type's stage i takes color i. */
   stages: string[];
@@ -50,6 +52,7 @@ export function readTheme(ctx: CanvasRenderingContext2D): Theme {
     subtext1: get('subtext1'),
     text: get('text'),
     killed: get('killed'),
+    blocked: get('blocked'),
     event: get('event'),
     accent: get('accent'),
     stages,

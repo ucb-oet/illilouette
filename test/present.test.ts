@@ -37,9 +37,9 @@ describe('Text for the pipeline', async () => {
 
   it('says where an object a field names was in that cycle', () => {
     const decode = rows[4].events[0];
-    const blocker = decode.fields.find((f) => f.name === 'blocker')!;
-    expect(fieldText(blocker, rows[blocker.row!], decode.cycle, stages[INSTRUCTION])).toBe('blocker instruction#0 (in Writeback)');
-    expect(fieldValue(blocker, rows[blocker.row!], decode.cycle, stages[INSTRUCTION])).toBe('instruction#0 (in Writeback)');
+    const by = decode.fields.find((f) => f.name === 'by')!;
+    expect(fieldText(by, rows[by.row!], decode.cycle, stages[INSTRUCTION])).toBe('by instruction#0 (in Writeback)');
+    expect(fieldValue(by, rows[by.row!], decode.cycle, stages[INSTRUCTION])).toBe('instruction#0 (in Writeback)');
     const stall = decode.fields.find((f) => f.name === 'stall')!;
     expect(fieldText(stall)).toBe('stall scoreboard');
   });
@@ -59,8 +59,8 @@ describe('Text for the pipeline', async () => {
 
   it('says how an object ended, or that it is live, with its cycles', () => {
     const last = source.info.lastCycle;
-    expect(outcomeText(rows[2], last)).toBe('Ended by retire · 4 cycles · 12–15');
-    expect(outcomeText(rows[7], last)).toBe('Ended by squash · 2 cycles · 18–19');
+    expect(outcomeText(rows[2], last)).toBe('Completed: retire · 4 cycles · 12–15');
+    expect(outcomeText(rows[7], last)).toBe('Aborted: squash · 2 cycles · 18–19');
     expect(outcomeText(rows[12], last)).toBe('Live when the trace ends · 4 cycles · 37–40');
   });
 

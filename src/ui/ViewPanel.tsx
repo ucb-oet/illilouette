@@ -3,7 +3,15 @@
 import type { RefObject } from 'preact';
 import { useEffect, useRef } from 'preact/hooks';
 import { fmt } from '../model/present';
+import { LINK_KINDS, type LinkKind } from '../model/source';
 import { Controller, useController } from './controller';
+
+/** Each kind of link, as the panel lists it beside its color. */
+const LINK_NAMES: Record<LinkKind, string> = {
+  aborted: 'Aborted by',
+  blocked: 'Blocked by',
+  other: 'Parents and others',
+};
 
 export function ViewPanel({ c, anchor }: { c: Controller; anchor: RefObject<HTMLElement> }) {
   useController(c);
@@ -20,8 +28,8 @@ export function ViewPanel({ c, anchor }: { c: Controller; anchor: RefObject<HTML
   }, [c, c.viewOpen]);
   if (!c.viewOpen) return null;
 
-  const { types, summary } = c.source.info;
-  const abnormal = summary.reduce((n, t) => n + t.ends.reduce((m, e) => m + (e.normal ? 0 : e.rows), 0), 0);
+  const { types, summary, links } = c.source.info;
+  const aborted = summary.reduce((n, t) => n + t.ends.reduce((m, e) => m + (e.normal ? 0 : e.rows), 0), 0);
   return (
     <div class="view-panel" ref={panel} role="dialog" aria-label="View">
       <section>
@@ -46,18 +54,28 @@ export function ViewPanel({ c, anchor }: { c: Controller; anchor: RefObject<HTML
         <h3>Objects</h3>
         <div class="opt">
           <label>
-            <input type="checkbox" checked={!c.hideAbnormal} onChange={() => void c.toggleAbnormal()} />
+            <input type="checkbox" checked={!c.hideAborted} onChange={() => void c.toggleAborted()} />
             <span class="cap" />
-            Ended abnormally
+            Aborted
           </label>
-          <span class="n">{fmt(abnormal)}</span>
+          <span class="n">{fmt(aborted)}</span>
         </div>
       </section>
       <section>
-        <h3>Arrows</h3>
+        <h3>Links</h3>
+        {LINK_KINDS.map((k) => (
+          <div class="opt" key={k}>
+            <label>
+              <input type="checkbox" checked={c.linkKinds.has(k)} onChange={() => c.toggleLinkKind(k)} />
+              <span class={`line ${k}`} />
+              {LINK_NAMES[k]}
+            </label>
+            <span class="n">{fmt(links[k])}</span>
+          </div>
+        ))}
         <div class="opt">
           <label>
-            <input type="checkbox" checked={c.allArrows} onChange={() => c.toggleArrows()} />
+            <input type="checkbox" checked={c.allLinks} onChange={() => c.toggleLinks()} />
             For everything on screen
           </label>
           <kbd>r</kbd>

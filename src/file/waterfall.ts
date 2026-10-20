@@ -18,6 +18,7 @@ export interface Site {
   event: number;
   instance: number;
   source: number;
+  blocks: boolean;
 }
 
 export interface Type {
@@ -57,7 +58,14 @@ export interface Field {
   name: number;
   text: number;
   row: number | null;
+  role: Role;
 }
+
+/** What a field naming another object means: that object is this one's parent, aborted it, or blocks it. */
+export type Role = 'none' | 'parent' | 'abortedBy' | 'blockedBy';
+
+/** Roles in the order of the schema's Role enum. */
+export const ROLES: readonly Role[] = ['none', 'parent', 'abortedBy', 'blockedBy'];
 
 export class WaterfallError extends Error {}
 
@@ -93,12 +101,13 @@ export function decodeWaterfall(bytes: Uint8Array): Waterfall {
 }
 
 function site(r: Reader): Site {
-  const s: Site = { event: 0, instance: 0, source: 0 };
+  const s: Site = { event: 0, instance: 0, source: 0, blocks: false };
   while (!r.done()) {
     const [field, wire] = r.tag();
     if (field === 1 && wire === Wire.Varint) s.event = r.varint();
     else if (field === 2 && wire === Wire.Varint) s.instance = r.varint();
     else if (field === 3 && wire === Wire.Varint) s.source = r.varint();
+    else if (field === 4 && wire === Wire.Varint) s.blocks = r.varint() !== 0;
     else r.skip(wire);
   }
   return s;
@@ -164,12 +173,14 @@ function event(r: Reader): Event {
 }
 
 function fieldOf(r: Reader): Field {
-  const f: Field = { name: 0, text: 0, row: null };
+  const f: Field = { name: 0, text: 0, row: null, role: 'none' };
   while (!r.done()) {
     const [field, wire] = r.tag();
     if (field === 1 && wire === Wire.Varint) f.name = r.varint();
     else if (field === 2 && wire === Wire.Varint) f.text = r.varint();
     else if (field === 3 && wire === Wire.Varint) f.row = r.varint();
+    // A role from a later schema is read as none.
+    else if (field === 4 && wire === Wire.Varint) f.role = ROLES[r.varint()] ?? 'none';
     else r.skip(wire);
   }
   return f;

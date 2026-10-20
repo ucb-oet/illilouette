@@ -207,7 +207,7 @@ function Viewer({ source, onOpen }: { source: MemorySource; onOpen: (f: File) =>
           void c.focusSelected();
           break;
         case 'r':
-          c.toggleArrows();
+          c.toggleLinks();
           break;
         case 't':
         case 'T':

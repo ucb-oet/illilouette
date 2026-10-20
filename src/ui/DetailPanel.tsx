@@ -1,7 +1,8 @@
 // The detail panel: the selected object, or with nothing selected, a summary of the file.
 import { Fragment } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
-import { effectText, fieldValue, fmt, objectName, outcomeText, shortName, timeByStage } from '../model/present';
+import { effectText, endText, fieldValue, fmt, objectName, outcomeText, shortName, timeByStage } from '../model/present';
+import type { Role } from '../file/waterfall';
 import type { Referrer, RowView } from '../model/source';
 import { Controller, useController } from './controller';
 
@@ -82,7 +83,8 @@ function Summary({ c }: { c: Controller }) {
             {t.ends.map((e) => (
               <Fragment key={e.name}>
                 <dt>
-                  {!e.normal && <span class="cap" />}Ended by {e.name}
+                  {!e.normal && <span class="cap" />}
+                  {endText(e.name, e.normal)}
                 </dt>
                 <dd>{fmt(e.rows)}</dd>
               </Fragment>
@@ -101,6 +103,11 @@ function Summary({ c }: { c: Controller }) {
   );
 }
 
+/** What an object a selected row names is to it, by the field's role. */
+const LINKED: Partial<Record<Role, string>> = { parent: 'parent', abortedBy: 'aborted by', blockedBy: 'blocked by' };
+/** What the selected row is to an object that names it. */
+const LINKING: Partial<Record<Role, string>> = { parent: 'parent of', abortedBy: 'aborted', blockedBy: 'blocks' };
+
 function Selection({ c, s }: { c: Controller; s: Selected }) {
   const { row, others, referrers } = s;
   const type = c.source.info.types[row.type];
@@ -112,16 +119,17 @@ function Selection({ c, s }: { c: Controller; s: Selected }) {
   };
   const copy = (text: string) => void navigator.clipboard?.writeText(text).catch(() => undefined);
 
+  // Each linked object, said by what it is to this one, or this one to it; by the event and field for any other link.
   const links: { label: string; row: RowView }[] = [];
   for (const e of row.events) {
     for (const f of e.fields) {
       const other = f.row === null ? undefined : others.get(f.row);
-      if (other) links.push({ label: `${shortName(e.name, type.name)} ${f.name}`, row: other });
+      if (other) links.push({ label: LINKED[f.role] ?? `${shortName(e.name, type.name)} ${f.name}`, row: other });
     }
   }
   for (const x of referrers) {
     const other = others.get(x.row);
-    if (other) links.push({ label: `${x.field} of ${shortName(x.event, c.source.info.types[other.type].name)}`, row: other });
+    if (other) links.push({ label: LINKING[x.role] ?? `${x.field} of ${shortName(x.event, c.source.info.types[other.type].name)}`, row: other });
   }
 
   return (

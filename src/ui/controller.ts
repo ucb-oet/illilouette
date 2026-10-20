@@ -3,13 +3,21 @@
 import { useEffect, useState } from 'preact/hooks';
 import { fmt, objectName, segmentAt } from '../model/present';
 import { parseQuery, type Match, type TypeWords } from '../model/search';
-import type { RowFilter, RowView, Source } from '../model/source';
+import { linkKind, type LinkKind, type RowFilter, type RowView, type Source } from '../model/source';
 import { CHAR_EM, labelColumns, labelFontSize } from './labels';
 
 const CHUNK = 256;
 const MAX_CHUNKS = 64;
 
 export const RULER = 28;
+
+/** A link from one object to another at a cycle: from what blocks an instruction to the instruction, say. */
+export interface Link {
+  from: number;
+  to: number;
+  cycle: number;
+  kind: LinkKind;
+}
 /** The factor one press of a zoom key zooms by. */
 export const ZOOM_STEP = 1.25;
 /** Cells this wide and up, drawn one by one, take whole pixels, so that their edges are crisp; narrower ones, drawn
@@ -69,17 +77,22 @@ export class Controller {
   /** The selected cycle, as vim's cursor column is to its current line. */
   column: number | null = null;
   hiddenTypes = new Set<number>();
-  /** Whether objects that ended without their type's normal end are hidden. */
-  hideAbnormal = false;
+  /** Whether aborted objects are hidden: those that ended other than by their type's normal end. */
+  hideAborted = false;
   /** Whether the view panel is open. */
   viewOpen = false;
   /** Keys read but waiting for the rest of their command, such as a count or the g of gg, shown in the status bar. */
   keysPending = '';
   /** The type drawn in full; every other type keeps only its bars. A file opens with its first type in focus. */
   focusType = 0;
-  /** Arrows for the selected row: from each object it names to it, and from it to each row that names it. */
-  related: { from: number; to: number; cycle: number }[] = [];
-  allArrows = false;
+  /** Links for the selected row, of every kind: from each object it names to it, and from it to each row that names
+   *  it. */
+  related: Link[] = [];
+  /** The kinds of link shown, for the selected row and for everything on screen alike. Links of other kinds, such as
+   *  from parents, which the rows' order and indent already show, start hidden. */
+  linkKinds = new Set<LinkKind>(['aborted', 'blocked']);
+  /** Whether links show for everything on screen, not only the selected row. */
+  allLinks = false;
   /** Cursors on clock edges, in order. */
   cursors: Cursor[] = [];
   /** The edge of the cursor whose name is being typed, if any. */
@@ -289,9 +302,11 @@ export class Controller {
     if (i === null) return;
     const [row, referrers] = await Promise.all([this.rowAsync(i), this.source.referrers(i)]);
     if (this.selected !== i) return;
-    const related: { from: number; to: number; cycle: number }[] = [];
-    for (const e of row.events) for (const f of e.fields) if (f.row !== null && f.row !== i) related.push({ from: f.row, to: i, cycle: e.cycle });
-    for (const x of referrers) related.push({ from: i, to: x.row, cycle: x.cycle });
+    const related: Link[] = [];
+    for (const e of row.events) {
+      for (const f of e.fields) if (f.row !== null && f.row !== i) related.push({ from: f.row, to: i, cycle: e.cycle, kind: linkKind(f.role) });
+    }
+    for (const x of referrers) related.push({ from: i, to: x.row, cycle: x.cycle, kind: linkKind(x.role) });
     this.related = related;
     this.changed();
   }
@@ -455,7 +470,7 @@ export class Controller {
     if (this.placeOf(row.index) < 0) {
       const type = this.source.info.types[row.type].name;
       if (this.hiddenTypes.has(row.type)) this.say(`${objectName(type, row.id)} is hidden with its type; press z${row.type + 1} to show ${type}.`);
-      else this.say(`${objectName(type, row.id)} ended by ${row.endedBy}, and objects that ended abnormally are hidden; press o to show them.`);
+      else this.say(`${objectName(type, row.id)} was aborted (${row.endedBy}), and aborted objects are hidden; press o to show them.`);
       return;
     }
     const first = row.events.length ? row.events[0].cycle : row.start;
@@ -537,14 +552,14 @@ export class Controller {
     });
   }
 
-  /** Shows or hides objects that ended without their type's normal end, closing up rows as hiding a type does. */
-  async toggleAbnormal(): Promise<void> {
-    await this.refilter(() => (this.hideAbnormal = !this.hideAbnormal));
+  /** Shows or hides aborted objects, closing up rows as hiding a type does. */
+  async toggleAborted(): Promise<void> {
+    await this.refilter(() => (this.hideAborted = !this.hideAborted));
   }
 
   /** What is hidden. */
   get filter(): RowFilter {
-    return { types: this.hiddenTypes, abnormal: this.hideAbnormal };
+    return { types: this.hiddenTypes, aborted: this.hideAborted };
   }
 
   /** How many objects are hidden, by type or by how they ended. */
@@ -567,7 +582,7 @@ export class Controller {
     const offset = selOnScreen || top >= 0 ? this.rowY(anchor) - RULER : 0;
     change();
     const toggle = ++this.toggles;
-    const shown = this.hiddenTypes.size || this.hideAbnormal ? await this.source.visibleRows(this.filter) : null;
+    const shown = this.hiddenTypes.size || this.hideAborted ? await this.source.visibleRows(this.filter) : null;
     if (toggle !== this.toggles) return;
     this.shown = shown;
     this.place = null;
@@ -734,9 +749,19 @@ export class Controller {
     this.changed();
   }
 
-  toggleArrows(): void {
-    this.allArrows = !this.allArrows;
+  toggleLinks(): void {
+    this.allLinks = !this.allLinks;
     this.changed();
+  }
+
+  toggleLinkKind(kind: LinkKind): void {
+    if (!this.linkKinds.delete(kind)) this.linkKinds.add(kind);
+    this.changed();
+  }
+
+  /** The selected row's links of the kinds shown. */
+  get shownRelated(): Link[] {
+    return this.related.filter((a) => this.linkKinds.has(a.kind));
   }
 
   /** The view a file opens with: its start, up close enough for lettered cells, with rows shrunk toward 40 in

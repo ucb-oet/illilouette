@@ -17,7 +17,8 @@
   --stage-0: var(--sapphire); --stage-1: var(--peach); --stage-2: var(--mauve); --stage-3: var(--green);
   --stage-4: var(--pink); --stage-5: var(--teal); --stage-6: var(--yellow); --stage-7: var(--blue);
   --killed: var(--red);
-  --event: var(--text);
+  --blocked: var(--yellow);
+  --event: var(--overlay1);
   --accent: var(--lavender);
 
   --font-ui: "Geist Variable", "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -136,6 +137,9 @@ kbd {
 .view-panel .focus { color: var(--subtext0); font-size: 12px; }
 .view-panel .n { font: 12px var(--font-data); color: var(--subtext0); font-variant-numeric: tabular-nums; }
 .view-panel input { accent-color: var(--accent); margin: 0; }
+.view-panel .line { display: inline-block; width: 14px; height: 2px; border-radius: 1px; background: var(--overlay1); }
+.view-panel .line.aborted { background: var(--killed); }
+.view-panel .line.blocked { background: var(--blocked); }
 .plain {
   border: 0; padding: 5px 10px; border-radius: var(--radius-control); cursor: pointer; background: var(--mantle);
   box-shadow: inset 0 0 0 1px var(--surface0); font-size: 13px;

@@ -3,7 +3,7 @@ import { MemorySource } from '../src/model/memory';
 import { segmentAt } from '../src/model/present';
 import { Controller, RULER, ZOOM_STEP } from '../src/ui/controller';
 import { CHAR_EM, labelColumns, labelFontSize } from '../src/ui/labels';
-import { arrowsShown, detailOf } from '../src/ui/render';
+import { linksShown, detailOf } from '../src/ui/render';
 import { build, FETCH, INSTRUCTION, open, pipeline, staircase } from './build';
 
 // 300 packets and their 240 instructions: every fifth packet is killed before decode.
@@ -58,14 +58,14 @@ describe('Hiding a type', () => {
   });
 });
 
-describe('Hiding objects that ended abnormally', () => {
+describe('Hiding aborted objects', () => {
   it('closes up their rows, clears a selection of one, and leaves them out of searches', async () => {
     const c = await open(pipeline());
     // Row 7, instruction#2, was squashed.
     c.select(7);
     await c.setSearch('instruction.squash');
     expect(c.search!.matches.length).toBe(1);
-    await c.toggleAbnormal();
+    await c.toggleAborted();
     // fetch#2 killed, instruction#2 squashed, instruction#3 replayed.
     expect([c.hiddenCount, c.shownCount]).toEqual([3, 10]);
     expect(c.placeOf(7)).toBe(-1);
@@ -73,10 +73,10 @@ describe('Hiding objects that ended abnormally', () => {
     expect([c.search!.matches.length, c.search!.skipped]).toEqual([0, 1]);
     c.select(7);
     await c.focusSelected();
-    expect(c.notice).toBe('instruction#2 ended by squash, and objects that ended abnormally are hidden; press o to show them.');
+    expect(c.notice).toBe('instruction#2 was aborted (squash), and aborted objects are hidden; press o to show them.');
     await c.toggleType(FETCH);
     expect(c.hiddenCount).toBe(6 + 2);
-    await c.toggleAbnormal();
+    await c.toggleAborted();
     expect(c.hiddenCount).toBe(6);
   });
 });
@@ -372,22 +372,40 @@ describe('Zoom sizes', () => {
   });
 });
 
-describe('Arrows when zoomed out', () => {
+describe('Links of the selected row', () => {
+  it('say what each linked object is to it, and show only the kinds chosen, parents starting hidden', async () => {
+    const c = await open(pipeline());
+    // Row 4, instruction#1: from its packet, blocked by instruction#0, and the instruction that squashed instruction#2.
+    c.select(4);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(c.related).toEqual([
+      { from: 3, to: 4, cycle: 15, kind: 'other' },
+      { from: 2, to: 4, cycle: 15, kind: 'blocked' },
+      { from: 4, to: 7, cycle: 19, kind: 'aborted' },
+    ]);
+    expect(c.shownRelated.map((a) => a.kind)).toEqual(['blocked', 'aborted']);
+    c.toggleLinkKind('other');
+    c.toggleLinkKind('blocked');
+    expect(c.shownRelated.map((a) => a.kind)).toEqual(['other', 'aborted']);
+  });
+});
+
+describe('Links when zoomed out', () => {
   it('go one zoom step after the label column loses its text, or the cells their letters', async () => {
     const c = await stairs();
     c.rowH = 13;
     c.zoomRows(1 / ZOOM_STEP, null);
     expect(c.rowH).toBeLessThan(12);
-    expect(arrowsShown(c)).toBe(true);
+    expect(linksShown(c)).toBe(true);
     c.zoomRows(1 / ZOOM_STEP, null);
-    expect(arrowsShown(c)).toBe(false);
+    expect(linksShown(c)).toBe(false);
     c.rowH = 18;
     c.cellW = 15;
     c.zoomTime(c.gutterW, 1 / ZOOM_STEP);
     expect(detailOf(c)).toBe('cells');
-    expect(arrowsShown(c)).toBe(true);
+    expect(linksShown(c)).toBe(true);
     c.zoomTime(c.gutterW, 1 / ZOOM_STEP);
-    expect(arrowsShown(c)).toBe(false);
+    expect(linksShown(c)).toBe(false);
   });
 });
 

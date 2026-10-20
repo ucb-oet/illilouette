@@ -24,7 +24,7 @@ describe('Searching the pipeline', () => {
   const run = async (text: string, hidden: number[] = []) => {
     const q = parseQuery(text, await source.words());
     if ('error' in q) throw new Error(q.error);
-    return source.search(q as Query, { types: new Set(hidden), abnormal: false });
+    return source.search(q as Query, { types: new Set(hidden), aborted: false });
   };
   const rows = async (text: string) => (await run(text)).matches.map((m) => m.row);
   const error = async (text: string) => {
@@ -48,7 +48,7 @@ describe('Searching the pipeline', () => {
     expect((await run('instruction.*.cause=cache_nack')).matches).toEqual([{ row: 9, cycle: 23 }]);
     expect((await run('fetch.miss.cause=cache')).matches).toEqual([{ row: 3, cycle: 12 }]);
     expect((await run('instruction.squash')).matches).toEqual([{ row: 7, cycle: 19 }]);
-    expect((await run('instruction.decode.blocker=instruction#0')).matches).toEqual([{ row: 4, cycle: 15 }]);
+    expect((await run('instruction.decode.by=instruction#0')).matches).toEqual([{ row: 4, cycle: 15 }]);
   });
 
   it('leaves out objects of hidden types, and counts them', async () => {

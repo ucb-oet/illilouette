@@ -42,7 +42,7 @@ function canvas(): CanvasRenderingContext2D {
 const theme: Theme = {
   dark: false,
   ...Object.fromEntries(
-    ['base', 'mantle', 'crust', 'surface0', 'surface1', 'surface2', 'overlay0', 'overlay1', 'subtext0', 'subtext1', 'text', 'killed', 'event', 'accent'].map((k) => [k, '#4c4f69']),
+    ['base', 'mantle', 'crust', 'surface0', 'surface1', 'surface2', 'overlay0', 'overlay1', 'subtext0', 'subtext1', 'text', 'killed', 'blocked', 'event', 'accent'].map((k) => [k, '#4c4f69']),
   ),
   stages: Array.from({ length: 8 }, () => '#209fb5'),
   wash: 0.3,
@@ -106,7 +106,7 @@ for (const file of files) {
       const shown = () => expect(c.hiddenCount).toBe(source.info.rowCount - c.shownCount);
       draw();
 
-      // Every type in focus, and hidden, in turn; objects that ended abnormally hidden.
+      // Every type in focus, and hidden, in turn; aborted objects hidden.
       for (let t = 0; t < source.info.types.length; t++) {
         c.cycleFocus(1);
         await c.toggleType(t);
@@ -114,10 +114,10 @@ for (const file of files) {
         draw();
         await c.toggleType(t);
       }
-      await c.toggleAbnormal();
+      await c.toggleAborted();
       shown();
       draw();
-      await c.toggleAbnormal();
+      await c.toggleAborted();
       expect(c.hiddenCount).toBe(0);
 
       // Moves: rows, paragraphs, a busy cycle's column, an object's events and ends, cursors.
@@ -142,9 +142,12 @@ for (const file of files) {
       c.deleteCursor();
       c.scrollSelectedTo('middle');
       c.selectScreenRow('bottom');
-      c.toggleArrows();
+      // Links of every kind, for everything on screen.
+      c.toggleLinks();
+      c.toggleLinkKind('other');
       draw();
-      c.toggleArrows();
+      c.toggleLinkKind('other');
+      c.toggleLinks();
 
       // Searches built from the file's own words: a row's label, a field with few values, an event; each finds
       // something, and every match is on a row shown.

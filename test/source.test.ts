@@ -20,9 +20,17 @@ describe('MemorySource on the pipeline', async () => {
     expect(rows[12].segments.at(-1)!.to).toBe(source.info.lastCycle + 1);
   });
 
-  it('finds the events of other objects that name an object', async () => {
-    expect(await source.referrers(2)).toEqual([{ row: 4, cycle: 15, event: 'instruction.decode', field: 'blocker' }]);
-    expect((await source.referrers(1)).map((x) => [x.row, x.field])).toEqual([[2, 'fetch']]);
+  it('finds the events of other objects that name an object, and what it is to them', async () => {
+    expect(await source.referrers(2)).toEqual([{ row: 4, cycle: 15, event: 'instruction.decode', field: 'by', role: 'blockedBy' }]);
+    expect(await source.referrers(4)).toEqual([{ row: 7, cycle: 19, event: 'instruction.squash', field: 'by', role: 'abortedBy' }]);
+    expect((await source.referrers(1)).map((x) => [x.row, x.field, x.role])).toEqual([[2, 'fetch', 'parent']]);
+  });
+
+  it('says which events find their object blocked, and counts the file\'s links by what they say', () => {
+    const blocking = rows.flatMap((r) => r.events.filter((e) => e.blocks).map((e) => [r.index, e.name]));
+    expect(blocking).toEqual([[3, 'fetch.miss'], [4, 'instruction.decode']]);
+    // An instruction's packet is its parent, and so among the others.
+    expect(source.info.links).toEqual({ aborted: 1, blocked: 1, other: 5 });
   });
 
   it('summarizes how each type\'s objects ended, most common first', () => {
@@ -42,7 +50,7 @@ describe('MemorySource on the pipeline', async () => {
   });
 
   it('lists the rows a filter leaves, in order', async () => {
-    const list = async (types: number[], abnormal: boolean) => [...(await source.visibleRows({ types: new Set(types), abnormal }))];
+    const list = async (types: number[], aborted: boolean) => [...(await source.visibleRows({ types: new Set(types), aborted }))];
     expect(await list([FETCH], false)).toEqual([0, 2, 4, 7, 9, 10, 12]);
     expect(await list([], true)).toEqual([0, 1, 2, 3, 4, 6, 8, 10, 11, 12]);
     expect(await list([FETCH], true)).toEqual([0, 2, 4, 10, 12]);

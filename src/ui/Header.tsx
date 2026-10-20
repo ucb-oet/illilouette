@@ -1,4 +1,4 @@
-// The header: the file's name and range, the jump box, which also searches, the type and arrow toggles, the palette,
+// The header: the file's name and range, the jump box, which also searches, the type and link toggles, the palette,
 // and opening another file.
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { fmt } from '../model/present';
@@ -158,8 +158,8 @@ export function Header({ c, onOpen }: { c: Controller; onOpen: (file: File) => P
             {t.name}
           </button>
         ))}
-        <button type="button" class="chip" aria-pressed={c.allArrows} title="Arrows for everything on screen" onClick={() => c.toggleArrows()}>
-          <kbd>r</kbd>Arrows
+        <button type="button" class="chip" aria-pressed={c.allLinks} title="Links for everything on screen" onClick={() => c.toggleLinks()}>
+          <kbd>r</kbd>Links
         </button>
       </div>
       <div class="view-anchor" ref={viewButton}>

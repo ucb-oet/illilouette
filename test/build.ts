@@ -1,6 +1,6 @@
 // Small waterfall files built in code, for tests that pin exact values: the Waterfall the decoder returns, and the
 // bytes it decodes from. Real files, from Chipyard's reader, are smoke-tested in files.test.ts.
-import type { Effect, Site, Waterfall } from '../src/file/waterfall';
+import { ROLES, type Effect, type Field, type Role, type Site, type Waterfall } from '../src/file/waterfall';
 import { MemorySource } from '../src/model/memory';
 import { Controller } from '../src/ui/controller';
 
@@ -9,6 +9,8 @@ export interface FieldSpec {
   text: string;
   /** The row of the object the field names, if any. */
   row?: number;
+  /** What that object is to this one; none if absent. */
+  role?: Role;
 }
 
 export interface EventSpec {
@@ -16,6 +18,8 @@ export interface EventSpec {
   /** The event's whole name, such as "instruction.decode". */
   name: string;
   effect?: Effect;
+  /** Whether it finds its object blocked; its site is then one of its own, as a blocking site is in the reader. */
+  blocks?: boolean;
   fields?: FieldSpec[];
 }
 
@@ -57,16 +61,17 @@ export function build(spec: FileSpec): Waterfall {
   };
   const sites: Site[] = [];
   const siteOf = new Map<string, number>();
-  const site = (event: string) => {
-    let i = siteOf.get(event);
+  const site = (event: string, blocks: boolean) => {
+    const key = `${event}${blocks ? ' blocks' : ''}`;
+    let i = siteOf.get(key);
     if (i === undefined) {
       i = sites.length;
-      sites.push({ event: s(event), instance: s('TestHarness.chiptop0.tile'), source: s(`Test.scala:${10 + i}`) });
-      siteOf.set(event, i);
+      sites.push({ event: s(event), instance: s('TestHarness.chiptop0.tile'), source: s(`Test.scala:${10 + i}`), blocks });
+      siteOf.set(key, i);
     }
     return i;
   };
-  const field = (f: FieldSpec) => ({ name: s(f.name), text: s(f.text), row: f.row ?? null });
+  const field = (f: FieldSpec) => ({ name: s(f.name), text: s(f.text), row: f.row ?? null, role: f.role ?? 'none' });
   const types = spec.types.map((t) => ({ name: s(t.name), stages: t.stages.map(s) }));
   return {
     version: 1,
@@ -87,7 +92,7 @@ export function build(spec: FileSpec): Waterfall {
       fields: (r.fields ?? []).map(field),
       events: (r.events ?? []).map((e) => ({
         cycle: e.cycle,
-        site: site(e.name),
+        site: site(e.name, e.blocks ?? false),
         effect: e.effect ?? { kind: 'observes' },
         fields: (e.fields ?? []).map(field),
       })),
@@ -128,11 +133,12 @@ export function encode(w: Waterfall): Uint8Array {
   const packed = (field: number, values: number[]) => {
     if (values.length) bytes(field, nested(() => values.forEach(varint)));
   };
-  const field = (n: number, f: { name: number; text: number; row: number | null }) =>
+  const field = (n: number, f: Field) =>
     bytes(n, nested(() => {
       num(1, f.name);
       num(2, f.text);
       if (f.row !== null) num(3, f.row);
+      if (f.role !== 'none') num(4, ROLES.indexOf(f.role));
     }));
 
   num(1, w.version);
@@ -140,7 +146,14 @@ export function encode(w: Waterfall): Uint8Array {
   num(3, w.firstCycle);
   num(4, w.lastCycle);
   for (const text of w.strings) bytes(5, [...new TextEncoder().encode(text)]);
-  for (const site of w.sites) bytes(6, nested(() => (num(1, site.event), num(2, site.instance), num(3, site.source))));
+  for (const site of w.sites) {
+    bytes(6, nested(() => {
+      num(1, site.event);
+      num(2, site.instance);
+      num(3, site.source);
+      if (site.blocks) num(4, 1);
+    }));
+  }
   for (const t of w.types) bytes(7, nested(() => (num(1, t.name), packed(2, t.stages))));
   for (const r of w.rows) {
     bytes(8, nested(() => {
@@ -183,11 +196,11 @@ export const [FETCH, INSTRUCTION] = [0, 1];
  *   row 0   instruction#9  from before the window: no label, in Writeback at 10, retired
  *   row 1   fetch#0        S1 10, S2 11, used at 11
  *   row 2   instruction#0  created in Decode at 12, Execute 13, Memory 14, Writeback 15, retired at 15
- *   row 3   fetch#1        S1 11, Miss 12–15 held 3, used at 15
- *   row 4   instruction#1  created in Decode at 15, stalled on instruction#0 until 17, Execute 18, …, retired at 20
+ *   row 3   fetch#1        S1 11, Miss 12–15 held 3, blocked by the miss at 12, used at 15
+ *   row 4   instruction#1  created in Decode at 15, blocked by instruction#0 until 17, Execute 18, …, retired at 20
  *   row 5   fetch#2        S1 13, S2 14, killed at 14
  *   row 6   fetch#3        S1 16, S2 17, used at 17
- *   row 7   instruction#2  created in Decode at 18, Execute 19, squashed at 19
+ *   row 7   instruction#2  created in Decode at 18, Execute 19, squashed by instruction#1 at 19
  *   row 8   fetch#4        S1 19, S2 20, used at 20
  *   row 9   instruction#3  created in Decode at 21, Execute 22, Memory 23–24, a replay marked at 23, replayed at 24
  *   row 10  instruction#4  without a packet; decoded at 30, in Decode from 31, as Sodor draws its rows; retired at 32
@@ -212,7 +225,7 @@ export function pipeline(): Waterfall {
   });
   const own = (id: number, bits: string, fetchRow: number) => [
     { name: 'bits', text: bits },
-    { name: 'fetch', text: `fetch#${id}`, row: fetchRow },
+    { name: 'fetch', text: `fetch#${id}`, row: fetchRow, role: 'parent' as const },
     { name: 'pc', text: pc(0x100 + 4 * id) },
   ];
   return build({
@@ -245,7 +258,7 @@ export function pipeline(): Waterfall {
       // 3, 4
       { ...packet(1, 11, MISS, 16, 3), events: [
         { cycle: 11, name: 'fetch.lookup', effect: enters(MISS), fields: [{ name: 'pc', text: pc(0x104) }] },
-        { cycle: 12, name: 'fetch.miss', fields: [{ name: 'cause', text: 'cache' }] },
+        { cycle: 12, name: 'fetch.miss', blocks: true, fields: [{ name: 'cause', text: 'cache' }] },
         { cycle: 15, name: 'fetch.use', effect: ends },
       ] },
       {
@@ -254,8 +267,8 @@ export function pipeline(): Waterfall {
         fields: own(1, '0x00a5a023', 3),
         events: [
           {
-            cycle: 15, name: 'instruction.decode',
-            fields: [...own(1, '0x00a5a023', 3), { name: 'stall', text: 'scoreboard' }, { name: 'blocker', text: 'instruction#0', row: 2 }],
+            cycle: 15, name: 'instruction.decode', blocks: true,
+            fields: [...own(1, '0x00a5a023', 3), { name: 'stall', text: 'scoreboard' }, { name: 'by', text: 'instruction#0', row: 2, role: 'blockedBy' }],
           },
           { cycle: 17, name: 'instruction.issue', effect: enters(EXECUTE) },
           { cycle: 18, name: 'instruction.memory', effect: enters(MEMORY) },
@@ -273,7 +286,7 @@ export function pipeline(): Waterfall {
         fields: own(3, '0x00b50463', 6),
         events: [
           { cycle: 18, name: 'instruction.decode', effect: enters(EXECUTE), fields: own(3, '0x00b50463', 6) },
-          { cycle: 19, name: 'instruction.squash', effect: ends },
+          { cycle: 19, name: 'instruction.squash', effect: ends, fields: [{ name: 'by', text: 'instruction#1', row: 4, role: 'abortedBy' }] },
         ],
       },
       // 8, 9
@@ -331,9 +344,9 @@ export function staircase(n: number): Waterfall {
       type: INSTRUCTION, id: k, label: [`0x${(0x1000 + 4 * k).toString(16)}`, `addi a${k % 8}, a${k % 8}, ${k}`], parent: packetRow,
       segments: squashed ? [[t + 2, DECODE], [t + 3, EXECUTE]] : [[t + 2, DECODE], [t + 3, EXECUTE], [t + 4, MEMORY], [t + 5, WRITEBACK]],
       end: squashed ? t + 4 : t + 6, endedBy: squashed ? 'squash' : 'retire', normalEnd: !squashed,
-      fields: [{ name: 'fetch', text: `fetch#${k}`, row: packetRow }],
+      fields: [{ name: 'fetch', text: `fetch#${k}`, row: packetRow, role: 'parent' }],
       events: [
-        { cycle: t + 2, name: 'instruction.decode', effect: enters(EXECUTE), fields: [{ name: 'fetch', text: `fetch#${k}`, row: packetRow }] },
+        { cycle: t + 2, name: 'instruction.decode', effect: enters(EXECUTE), fields: [{ name: 'fetch', text: `fetch#${k}`, row: packetRow, role: 'parent' }] },
         ...(squashed
           ? [{ cycle: t + 3, name: 'instruction.squash', effect: ends }]
           : [

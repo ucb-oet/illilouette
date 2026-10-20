@@ -1,7 +1,7 @@
 // What the drawing code asks for. It never touches the file: a source answers from a file loaded in the browser
 // today, and from a server for large files later.
 // TODO: a server-backed source with a version handshake, for files too large to load whole.
-import type { Effect } from '../file/waterfall';
+import type { Effect, Role } from '../file/waterfall';
 import type { Query, SearchResult, TypeWords } from './search';
 
 export interface Info {
@@ -12,6 +12,18 @@ export interface Info {
   types: TypeInfo[];
   rowCount: number;
   summary: TypeSummary[];
+  /** Links in the file, by kind: fields naming another object. */
+  links: Record<LinkKind, number>;
+}
+
+/** What a link says, from the role of the field that draws it: the object it runs from aborted the object it
+ *  runs to, or blocks it, or is anything else to it, such as its parent. */
+export type LinkKind = 'aborted' | 'blocked' | 'other';
+
+export const LINK_KINDS: readonly LinkKind[] = ['aborted', 'blocked', 'other'];
+
+export function linkKind(role: Role): LinkKind {
+  return role === 'abortedBy' ? 'aborted' : role === 'blockedBy' ? 'blocked' : 'other';
 }
 
 export interface TypeInfo {
@@ -69,6 +81,8 @@ export interface FieldView {
   text: string;
   /** The row of the object this field names, if any. */
   row: number | null;
+  /** What that object is to this one. */
+  role: Role;
 }
 
 export interface EventView {
@@ -77,21 +91,25 @@ export interface EventView {
   source: string;
   instance: string;
   effect: Effect;
+  /** Whether it finds its object blocked: waiting, rather than making progress. */
+  blocks: boolean;
   fields: FieldView[];
 }
 
-/** An event of another row that names this one, such as a stall naming its blocker. */
+/** An event of another row that names this one, such as a stall naming what blocks it. */
 export interface Referrer {
   row: number;
   cycle: number;
   event: string;
   field: string;
+  /** What this row is to the other. */
+  role: Role;
 }
 
-/** Which objects are hidden: those of some types, and those that ended without their type's normal end. */
+/** Which objects are hidden: those of some types, and those aborted: ended other than by their type's normal end. */
 export interface RowFilter {
   types: ReadonlySet<number>;
-  abnormal: boolean;
+  aborted: boolean;
 }
 
 export interface Source {

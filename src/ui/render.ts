@@ -1,8 +1,8 @@
 // Draws the waterfall: the label column, the ruler, and one row per object. How much a row shows follows its size:
 // lettered cells up close, one run per stage in the middle, solid rows far out.
 import { fmt } from '../model/present';
-import type { RowView } from '../model/source';
-import { Controller, RULER, ZOOM_STEP } from './controller';
+import { linkKind, type LinkKind, type RowView } from '../model/source';
+import { Controller, RULER, ZOOM_STEP, type Link } from './controller';
 import { EDGE, GAP, labelColumns, labelFontSize } from './labels';
 import { MONO, rgba, type Theme } from './theme';
 
@@ -21,9 +21,9 @@ export function detailOf(c: Controller): Detail {
   return 'solid';
 }
 
-/** Whether arrows show, the selection's included: not once zoomed out a step past where cells lose their letters or
+/** Whether links show, the selection's included: not once zoomed out a step past where cells lose their letters or
  *  the label column its text, where they would only clutter. Sizes there are whole pixels, so the step is rounded. */
-export function arrowsShown(c: Controller): boolean {
+export function linksShown(c: Controller): boolean {
   return c.cellW >= Math.round(LETTER_CELLS / ZOOM_STEP) - 0.5 && c.rowH >= Math.round(LABEL_ROWS / ZOOM_STEP) - 0.5;
 }
 
@@ -34,14 +34,8 @@ export const DETAIL_NAMES: Record<Detail, string> = {
   solid: 'Solid rows',
 };
 
-/** An arrow from one object to another at a cycle: from a stall's blocker to the stalled instruction, say. */
-interface Arrow {
-  from: number;
-  to: number;
-  cycle: number;
-}
-
-const muted = (r: RowView) => r.end !== null && !r.normalEnd;
+/** Whether an object was aborted: ended other than by its type's normal end. */
+const aborted = (r: RowView) => r.end !== null && !r.normalEnd;
 
 function rr(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
   if (w <= 0 || h <= 0) return;
@@ -89,7 +83,7 @@ export function drawWaterfall(ctx: CanvasRenderingContext2D, c: Controller, th: 
   const step = niceStep(72 / cw);
   // A row's tint, the same across the label column and the timeline: selected, related to the selection, or hovered.
   // The selection's is a little stronger on the label column's darker ground.
-  const relatedRows = new Set(c.related.flatMap((a) => [a.from, a.to]));
+  const relatedRows = new Set(c.shownRelated.flatMap((a) => [a.from, a.to]));
   const bandOf = (r: RowView, gutter: boolean): string | null => {
     if (r.index === c.selected) return rgba(th.accent, gutter ? (th.dark ? 0.2 : 0.16) : th.dark ? 0.16 : 0.14);
     if (relatedRows.has(r.index)) return rgba(th.accent, th.dark ? 0.07 : 0.06);
@@ -113,11 +107,19 @@ export function drawWaterfall(ctx: CanvasRenderingContext2D, c: Controller, th: 
     ctx.fillRect(c.xOf(c.column), RULER, Math.max(1, cw), H - RULER);
   }
 
-  const arrows: Arrow[] = [];
-  if (arrowsShown(c)) {
-    arrows.push(...c.related);
-    if (c.allArrows) {
-      for (const r of rows) for (const e of r.events) for (const f of e.fields) if (f.row !== null) arrows.push({ from: f.row, to: r.index, cycle: e.cycle });
+  // Links of the kinds shown: the selected row's, and with r those of everything else on screen, fainter while a row
+  // is selected, so that its own stand out.
+  const mine = linksShown(c) ? c.shownRelated : [];
+  const others: Link[] = [];
+  if (linksShown(c) && c.allLinks) {
+    for (const r of rows) {
+      for (const e of r.events) {
+        for (const f of e.fields) {
+          if (f.row === null || f.row === r.index || r.index === c.selected || f.row === c.selected) continue;
+          const kind = linkKind(f.role);
+          if (c.linkKinds.has(kind)) others.push({ from: f.row, to: r.index, cycle: e.cycle, kind });
+        }
+      }
     }
   }
   for (const r of rows) {
@@ -135,11 +137,23 @@ export function drawWaterfall(ctx: CanvasRenderingContext2D, c: Controller, th: 
     else if (detail === 'runs') drawRuns(ctx, c, th, r, y);
     else drawSolid(ctx, c, th, r, y);
   }
-  for (const a of arrows) {
-    if (c.placeOf(a.from) < 0 || c.placeOf(a.to) < 0) continue;
-    const xc = c.xOf(a.cycle) + Math.min(cw, 24) / 2;
-    drawArrow(ctx, th, xc, c.rowY(a.from) + rowH / 2, c.rowY(a.to) + rowH / 2);
-  }
+  const drawLinks = (links: Link[], alpha: number) => {
+    ctx.globalAlpha = alpha;
+    for (const a of links) {
+      if (c.placeOf(a.from) < 0 || c.placeOf(a.to) < 0) continue;
+      // From the edge after the event's cell on the linked object's row, into the mark the link explains: the dot of a
+      // blocking event, on its left, or the cap of an abort, on the edge where the object's row ends. Any other link
+      // ends on that edge too.
+      const edge = c.xOf(a.cycle + 1) - 1;
+      const to = a.kind === 'blocked' ? markAt(c, a.cycle, c.rowY(a.to)) : null;
+      const x2 = to ? to.x + to.r + 2.5 : edge;
+      const y2 = to ? to.y : c.rowY(a.to) + rowH / 2;
+      drawLink(ctx, th, linkColor(th, a.kind), edge, c.rowY(a.from) + rowH / 2, x2, y2);
+    }
+    ctx.globalAlpha = 1;
+  };
+  drawLinks(others, c.selected === null ? 1 : 0.4);
+  drawLinks(mine, 1);
   // The selected cell, where the selected row and column cross: lavender corners just outside it, which no cell
   // border looks like.
   if (c.selected !== null && c.column !== null && c.placeOf(c.selected) >= 0) {
@@ -293,14 +307,15 @@ function padOf(rowH: number): number {
   return rowH >= 10 ? 2 : rowH >= 4 ? 1 : 0;
 }
 
-/** A dot for an event that describes an object without moving or ending it. */
-function drawDot(ctx: CanvasRenderingContext2D, th: Theme, x: number, y: number, s: number): void {
+/** A dot for an event, edged in the ground color: amber for one that finds its object blocked, and a little smaller
+ *  and gray for any other that describes an object without moving or ending it. */
+function drawDot(ctx: CanvasRenderingContext2D, color: string, ground: string, x: number, y: number, r: number): void {
   ctx.beginPath();
-  ctx.arc(x, y, 3.5 * s, 0, Math.PI * 2);
+  ctx.arc(x, y, r, 0, Math.PI * 2);
   ctx.lineWidth = 2;
-  ctx.strokeStyle = th.base;
+  ctx.strokeStyle = ground;
   ctx.stroke();
-  ctx.fillStyle = th.event;
+  ctx.fillStyle = color;
   ctx.fill();
 }
 
@@ -311,13 +326,20 @@ function drawCap(ctx: CanvasRenderingContext2D, th: Theme, x: number, y: number,
   ctx.fill();
 }
 
+/** Where an event's dot goes, near the top left of its cell in a row at y, and a blocking event's dot's radius. */
+function markAt(c: Controller, cycle: number, y: number): { x: number; y: number; r: number } {
+  const s = Math.min(1, Math.max(0.5, Math.min(c.cellW, c.rowH) / 18));
+  return { x: c.xOf(cycle) + Math.max(3, Math.min(c.cellW * 0.22, 6)), y: y + padOf(c.rowH) + 3.5 * s, r: 3.5 * s };
+}
+
 function drawMarks(ctx: CanvasRenderingContext2D, c: Controller, th: Theme, r: RowView, y: number, gap: number): void {
   const pad = padOf(c.rowH);
-  const s = Math.min(1, Math.max(0.5, Math.min(c.cellW, c.rowH) / 18));
   for (const e of r.events) {
-    if (e.effect.kind === 'observes') drawDot(ctx, th, c.xOf(e.cycle) + Math.max(3, Math.min(c.cellW * 0.22, 6)), y + pad + 3.5 * s, s);
+    const at = markAt(c, e.cycle, y);
+    if (e.blocks) drawDot(ctx, th.blocked, th.base, at.x, at.y, at.r);
+    else if (e.effect.kind === 'observes') drawDot(ctx, th.event, th.base, at.x, at.y, at.r * 0.85);
   }
-  if (muted(r)) drawCap(ctx, th, c.xOf(r.end!) - gap / 2, y + pad, c.rowH - 2 * pad);
+  if (aborted(r)) drawCap(ctx, th, c.xOf(r.end!) - gap / 2, y + pad, c.rowH - 2 * pad);
 }
 
 /** Dashes of a held stretch of bar, and the gaps between them, in pixels. */
@@ -346,7 +368,7 @@ function drawCells(ctx: CanvasRenderingContext2D, c: Controller, th: Theme, r: R
   const stages = c.source.info.types[r.type].stages;
   const cMin = Math.floor(c.x0) - 1;
   const cMax = Math.ceil(c.x0 + c.visibleCycles) + 1;
-  ctx.globalAlpha = muted(r) ? 0.5 : 1;
+  ctx.globalAlpha = aborted(r) ? 0.5 : 1;
   ctx.font = MONO(11, 600);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -383,7 +405,7 @@ function drawRuns(ctx: CanvasRenderingContext2D, c: Controller, th: Theme, r: Ro
   const pad = padOf(c.rowH);
   const h = c.rowH - 2 * pad;
   const gap = c.cellW >= 5 ? 2 : 1;
-  ctx.globalAlpha = muted(r) ? 0.5 : 1;
+  ctx.globalAlpha = aborted(r) ? 0.5 : 1;
   const focused = r.type === c.focusType;
   for (const s of r.segments) {
     const color = th.stages[s.stage % th.stages.length];
@@ -424,7 +446,7 @@ function drawSolid(ctx: CanvasRenderingContext2D, c: Controller, th: Theme, r: R
   const inset = c.rowH >= 3 ? 1 : 0;
   const top = y + inset;
   const h = Math.max(1, c.rowH - inset);
-  ctx.globalAlpha = muted(r) ? 0.4 : 1;
+  ctx.globalAlpha = aborted(r) ? 0.4 : 1;
   const focused = r.type === c.focusType;
   for (const s of r.segments) {
     const color = th.stages[s.stage % th.stages.length];
@@ -445,11 +467,11 @@ function drawSolid(ctx: CanvasRenderingContext2D, c: Controller, th: Theme, r: R
   }
   ctx.globalAlpha = 1;
   for (const e of r.events) {
-    if (e.effect.kind !== 'observes') continue;
-    ctx.fillStyle = th.event;
+    if (!e.blocks && e.effect.kind !== 'observes') continue;
+    ctx.fillStyle = e.blocks ? th.blocked : th.event;
     ctx.fillRect(c.xOf(e.cycle), top, Math.max(1.5, c.cellW * 0.4), h);
   }
-  if (muted(r)) {
+  if (aborted(r)) {
     ctx.fillStyle = th.killed;
     ctx.fillRect(c.xOf(r.end!), top, Math.max(2, c.cellW * 0.6), h);
   }
@@ -481,28 +503,27 @@ function drawBrackets(ctx: CanvasRenderingContext2D, th: Theme, x: number, y: nu
   ctx.stroke();
 }
 
-function drawArrow(ctx: CanvasRenderingContext2D, th: Theme, x: number, y1: number, y2: number): void {
-  const bow = Math.max(18, Math.abs(y2 - y1) * 0.35);
+/** A link's color, by what it says: red for what aborted an object, as the cap at its end; amber for what blocks it,
+ *  as the dot of the event that says so; gray for anything else, such as its parent. */
+function linkColor(th: Theme, kind: LinkKind): string {
+  return kind === 'aborted' ? th.killed : kind === 'blocked' ? th.blocked : th.overlay1;
+}
+
+/** A link from (x1, y1) to (x2, y2), bowed to the right, edged in the ground color so that it reads over any stage's
+ *  cells. It has no arrowhead: the mark it runs into shows which end is affected, and a link without a mark, such as
+ *  from a parent, comes down from the row above. */
+function drawLink(ctx: CanvasRenderingContext2D, th: Theme, color: string, x1: number, y1: number, x2: number, y2: number): void {
+  const right = Math.max(x1, x2) + Math.max(18, Math.abs(y2 - y1) * 0.35);
   ctx.beginPath();
-  ctx.moveTo(x, y1);
-  ctx.bezierCurveTo(x + bow, y1, x + bow, y2, x + 3, y2);
-  ctx.strokeStyle = th.accent;
-  ctx.lineWidth = 2;
+  ctx.moveTo(x1, y1);
+  ctx.bezierCurveTo(right, y1, right, y2, x2, y2);
   ctx.lineCap = 'round';
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(x + 3, y2);
-  ctx.lineTo(x + 10, y2 - 4.5);
-  ctx.lineTo(x + 10, y2 + 4.5);
-  ctx.closePath();
-  ctx.fillStyle = th.accent;
-  ctx.fill();
-  ctx.beginPath();
-  ctx.arc(x, y1, 3.5, 0, Math.PI * 2);
   ctx.strokeStyle = th.base;
+  ctx.lineWidth = 4;
+  ctx.stroke();
+  ctx.strokeStyle = color;
   ctx.lineWidth = 2;
   ctx.stroke();
-  ctx.fill();
 }
 
 /** Each row's type while several show, indented once for each shown ancestor, then its ID and label texts, which
@@ -534,9 +555,9 @@ function drawLabels(ctx: CanvasRenderingContext2D, c: Controller, th: Theme, row
       const room = c.gutterW - x - EDGE;
       if (text && (!lastLabel || room > charW)) {
         const shown = lastLabel ? ellipsize(ctx, text, room) : text;
-        ctx.fillStyle = muted(r) ? th.overlay1 : lastLabel ? th.text : th.subtext0;
+        ctx.fillStyle = aborted(r) ? th.overlay1 : lastLabel ? th.text : th.subtext0;
         ctx.fillText(shown, x, cy);
-        if (muted(r) && lastLabel) {
+        if (aborted(r) && lastLabel) {
           ctx.fillStyle = th.overlay1;
           ctx.fillRect(x, Math.round(cy), ctx.measureText(shown).width, 1);
         }
