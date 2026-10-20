@@ -4,6 +4,8 @@ A pipeline waterfall viewer for [EventTrace](https://github.com/ucb-bar/chipyard
 
 The viewer draws a **waterfall file**, `proto/waterfall.proto`, which a post-processor writes from a trace, its manifest, and the design's view configuration. Everything the viewer draws is already derived in that file: stages, held cycles, how each object ended, the objects its events name, and labels such as disassembly. The viewer applies none of the trace's rules.
 
+It is hosted at https://ucb-oet.github.io/illilouette/, built from `main` on every push. A file you open there is read in your browser and never leaves it: the page has no server and sends nothing.
+
 ## Making a waterfall file
 
 Chipyard's EventTrace reader writes the file with `eventtrace waterfall`. It keeps a copy of this repo's schema, which this repo owns:
@@ -90,6 +92,7 @@ The box counts the matches as you type. Enter goes to the first match after the 
 ## Layout
 
 - `proto/waterfall.proto`: the file format.
+- `.github/workflows/pages.yml`: on every push to `main`, runs the tests other than the smoke tests, which need Chipyard's files, builds the page, and publishes it to GitHub Pages.
 - `src/file/`: protobuf decoding of the file.
 - `src/model/`: the source interface the drawing code reads rows through, the in-memory source, and text derived for display.
 - `src/ui/`: the page: controller, canvas renderer, timeline bar, detail panel, header.
