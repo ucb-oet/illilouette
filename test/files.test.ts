@@ -5,8 +5,8 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { describe, expect, it } from 'vitest';
-import { decodeWaterfall } from '../src/file/waterfall';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { decodeWaterfall, type Waterfall } from '../src/file/waterfall';
 import { MemorySource } from '../src/model/memory';
 import { parseQuery } from '../src/model/search';
 import { Controller, ZOOM_STEP } from '../src/ui/controller';
@@ -57,8 +57,17 @@ describe('Chipyard\'s waterfall files', () => {
 
 for (const file of files) {
   describe(relative(root, file), () => {
-    const w = decodeWaterfall(new Uint8Array(readFileSync(file)));
-    const source = new MemorySource(w);
+    // Read as the file's tests start and dropped as they end, so that only one file is in memory at a time.
+    let w: Waterfall;
+    let source: MemorySource;
+    beforeAll(() => {
+      w = decodeWaterfall(new Uint8Array(readFileSync(file)));
+      source = new MemorySource(w);
+    }, 120_000);
+    afterAll(() => {
+      w = undefined!;
+      source = undefined!;
+    });
 
     it('holds together as the viewer reads it', () => {
       // Problems are gathered rather than asserted one by one, for speed on files of half a million rows.
