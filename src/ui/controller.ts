@@ -46,7 +46,16 @@ function zoomSize(drawn: number, exact: number, factor: number, key: boolean, mi
 export interface Cursor {
   edge: number;
   name: string;
+  /** Its group, one of CURSOR_GROUPS, each with its own color: the cursor's distances are to its group's neighbors. */
+  group: number;
 }
+
+/** How many groups cursors come in: one for each color that stays distinct from the others. */
+export const CURSOR_GROUPS = 6;
+
+/** The height of a group's lane in the cursor strip along the bottom of the waterfall, and the strip's padding. */
+export const LANE = 22;
+const STRIP_PAD = 6;
 
 export interface Hover {
   row: number | null;
@@ -97,6 +106,10 @@ export class Controller {
   cursors: Cursor[] = [];
   /** The edge of the cursor whose name is being typed, if any. */
   naming: number | null = null;
+  /** The group a new cursor goes in: the one last chosen. */
+  cursorGroup = 0;
+  /** Whether the cursor panel is open. */
+  cursorsOpen = false;
   /** Whether the list of keys is open. */
   helpOpen = false;
   /** The search in the jump box: its text, what is wrong with it if anything, its matches in row order, the rows they
@@ -173,7 +186,28 @@ export class Controller {
   }
   rowAtY(y: number): number | null {
     const p = Math.floor((y - RULER + this.y0) / this.rowH);
-    return y > RULER && p >= 0 && p < this.shownCount ? this.rowAtPlace(p) : null;
+    return y > RULER && y < this.plotBottom && p >= 0 && p < this.shownCount ? this.rowAtPlace(p) : null;
+  }
+
+  /** The groups with cursors, in order: one lane each in the cursor strip. */
+  get cursorLanes(): number[] {
+    return [...new Set(this.cursors.map((k) => k.group))].sort((a, b) => a - b);
+  }
+  /** The cursor strip's height: a lane for each group with cursors, and none without cursors. */
+  get stripH(): number {
+    return this.cursors.length ? this.cursorLanes.length * LANE + STRIP_PAD : 0;
+  }
+  /** The middle of a group's lane in the cursor strip. */
+  laneY(group: number): number {
+    return this.plotBottom + STRIP_PAD / 2 + this.cursorLanes.indexOf(group) * LANE + LANE / 2;
+  }
+  /** Where the rows end, above the cursor strip. */
+  get plotBottom(): number {
+    return this.height - this.stripH;
+  }
+  /** The height the rows have, between the ruler and the cursor strip. */
+  get plotH(): number {
+    return Math.max(1, this.plotBottom - RULER);
   }
   cycleAtX(x: number): number | null {
     return x >= this.gutterW ? Math.floor(this.x0 + (x - this.gutterW) / this.cellW) : null;
@@ -241,7 +275,7 @@ export class Controller {
     const { firstCycle, lastCycle } = this.source.info;
     const visible = this.visibleCycles;
     this.x0 = Math.min(Math.max(this.x0, firstCycle - visible * 0.5), lastCycle + 1 - visible * 0.5);
-    this.y0 = Math.min(Math.max(0, this.y0), Math.max(0, this.shownCount * this.rowH - (this.height - RULER) + this.rowH * 2));
+    this.y0 = Math.min(Math.max(0, this.y0), Math.max(0, this.shownCount * this.rowH - this.plotH + this.rowH * 2));
   }
 
   /** Zooms time around a point on the timeline, by a factor on pixels per cycle; `key` for a key press. */
@@ -262,14 +296,14 @@ export class Controller {
     let row: number;
     let y: number;
     const sel = this.selected;
-    if (sel !== null && this.placeOf(sel) >= 0 && this.rowY(sel) >= RULER && this.rowY(sel) + this.rowH <= this.height) {
+    if (sel !== null && this.placeOf(sel) >= 0 && this.rowY(sel) >= RULER && this.rowY(sel) + this.rowH <= this.plotBottom) {
       row = this.placeOf(sel) + 0.5;
       y = this.rowY(sel) + this.rowH / 2;
     } else if (pointerY !== null && pointerY > RULER) {
       row = (this.y0 + pointerY - RULER) / this.rowH;
       y = pointerY;
     } else {
-      y = RULER + (this.height - RULER) / 2;
+      y = RULER + this.plotH / 2;
       row = (this.y0 + y - RULER) / this.rowH;
     }
     this.rowH = next;
@@ -416,7 +450,7 @@ export class Controller {
     if (this.shownCount === 0) return;
     const last = this.shownCount - 1;
     const top = Math.min(Math.ceil(this.y0 / this.rowH), last);
-    const bottom = Math.max(top, Math.min(Math.floor((this.y0 + this.height - RULER) / this.rowH) - 1, last));
+    const bottom = Math.max(top, Math.min(Math.floor((this.y0 + this.plotH) / this.rowH) - 1, last));
     const p = where === 'top' ? top : where === 'bottom' ? bottom : Math.floor((top + bottom) / 2);
     this.select(this.rowAtPlace(p));
   }
@@ -426,7 +460,7 @@ export class Controller {
   scrollSelectedTo(where: 'middle' | 'top' | 'bottom'): void {
     if (this.selected === null || this.placeOf(this.selected) < 0) return;
     const y = this.placeOf(this.selected) * this.rowH;
-    const room = this.height - RULER;
+    const room = this.plotH;
     this.y0 = where === 'top' ? y : where === 'bottom' ? y + this.rowH - room : y + this.rowH / 2 - room / 2;
     this.clamp();
     this.changed();
@@ -459,7 +493,7 @@ export class Controller {
   private reveal(i: number): void {
     if (this.placeOf(i) < 0) return;
     const y = this.placeOf(i) * this.rowH;
-    if (y < this.y0 || y > this.y0 + this.height - RULER - this.rowH * 2) this.y0 = y - (this.height - RULER) / 3;
+    if (y < this.y0 || y > this.y0 + this.plotH - this.rowH * 2) this.y0 = y - this.plotH / 3;
     this.clamp();
   }
 
@@ -474,7 +508,7 @@ export class Controller {
       return;
     }
     const first = row.events.length ? row.events[0].cycle : row.start;
-    this.y0 = this.placeOf(row.index) * this.rowH - (this.height - RULER) / 3;
+    this.y0 = this.placeOf(row.index) * this.rowH - this.plotH / 3;
     this.x0 = first - this.visibleCycles / 3;
     this.clamp();
     this.changed();
@@ -517,7 +551,7 @@ export class Controller {
 
   async jumpToCycle(cycle: number): Promise<void> {
     const i = await this.source.rowAt(cycle);
-    this.y0 = this.placeAtOrAfter(i) * this.rowH - (this.height - RULER) / 4;
+    this.y0 = this.placeAtOrAfter(i) * this.rowH - this.plotH / 4;
     this.x0 = cycle - this.visibleCycles / 3;
     this.clamp();
     this.changed();
@@ -569,6 +603,7 @@ export class Controller {
 
   toggleView(): void {
     this.viewOpen = !this.viewOpen;
+    if (this.viewOpen) this.cursorsOpen = false;
     this.changed();
   }
 
@@ -576,7 +611,7 @@ export class Controller {
    *  selection while it is on screen and stays shown, else the top row, or the first shown row after it. */
   private async refilter(change: () => void): Promise<void> {
     const sel = this.selected;
-    const selOnScreen = sel !== null && this.placeOf(sel) >= 0 && this.rowY(sel) >= RULER && this.rowY(sel) < this.height;
+    const selOnScreen = sel !== null && this.placeOf(sel) >= 0 && this.rowY(sel) >= RULER && this.rowY(sel) < this.plotBottom;
     const top = Math.min(Math.floor(this.y0 / this.rowH), this.shownCount - 1);
     let anchor = selOnScreen ? sel! : top >= 0 ? this.rowAtPlace(top) : 0;
     const offset = selOnScreen || top >= 0 ? this.rowY(anchor) - RULER : 0;
@@ -663,7 +698,7 @@ export class Controller {
     const m = s.matches[k];
     this.select(m.row);
     this.column = m.cycle;
-    this.y0 = this.placeOf(m.row) * this.rowH - (this.height - RULER) / 3;
+    this.y0 = this.placeOf(m.row) * this.rowH - this.plotH / 3;
     this.x0 = m.cycle - this.visibleCycles / 3;
     this.clamp();
     this.changed();
@@ -680,8 +715,15 @@ export class Controller {
     const { firstCycle, lastCycle } = this.source.info;
     const edge = Math.min(Math.max(at, firstCycle), lastCycle + 1);
     if (this.cursors.some((k) => k.edge === edge)) return;
-    this.cursors = [...this.cursors, { edge, name: '' }].sort((a, b) => a.edge - b.edge);
+    this.cursors = [...this.cursors, { edge, name: '', group: this.cursorGroup }].sort((a, b) => a.edge - b.edge);
     this.naming = edge;
+    this.changed();
+  }
+
+  /** Moves a cursor to a group, which new cursors then go in too. */
+  setCursorGroup(edge: number, group: number): void {
+    this.cursorGroup = group;
+    this.cursors = this.cursors.map((k) => (k.edge === edge ? { ...k, group } : k));
     this.changed();
   }
 
@@ -690,7 +732,7 @@ export class Controller {
   nameCursor(edge: number, name: string): void {
     const text = name.trim();
     const plain = text === fmt(edge) || text === String(edge) ? '' : text;
-    this.cursors = this.cursors.map((k) => (k.edge === edge ? { edge, name: plain } : k));
+    this.cursors = this.cursors.map((k) => (k.edge === edge ? { ...k, name: plain } : k));
     this.naming = null;
     this.changed();
   }
@@ -712,10 +754,29 @@ export class Controller {
   deleteCursor(): void {
     const col = this.column;
     if (col === null) return;
-    const edge = this.cursors.some((k) => k.edge === col) ? col : col + 1;
+    this.removeCursor(this.cursors.some((k) => k.edge === col) ? col : col + 1);
+  }
+
+  /** Removes the cursor on an edge, if there is one. */
+  removeCursor(edge: number): void {
     const kept = this.cursors.filter((k) => k.edge !== edge);
     if (kept.length === this.cursors.length) return;
     this.cursors = kept;
+    if (this.naming === edge) this.naming = null;
+    this.changed();
+  }
+
+  /** Pans time to put a cursor in the middle of the view, and selects the cycle its edge starts. */
+  panToCursor(edge: number): void {
+    this.x0 = edge - this.visibleCycles / 2;
+    this.clamp();
+    this.selectColumn(edge);
+  }
+
+  /** Opens or closes the cursor panel; the view panel closes as it opens, as both hang from the header. */
+  toggleCursors(): void {
+    this.cursorsOpen = !this.cursorsOpen;
+    if (this.cursorsOpen) this.viewOpen = false;
     this.changed();
   }
 
@@ -772,7 +833,7 @@ export class Controller {
     const top = this.rowAtPlace(0);
     const [first] = this.shownCount ? await this.source.rows(top, top + 1) : [];
     this.cellW = 22;
-    this.rowH = Math.max(16, Math.min(22, Math.floor((this.height - RULER) / 40)));
+    this.rowH = Math.max(16, Math.min(22, Math.floor(this.plotH / 40)));
     const { fullW } = labelColumns(this.source.info, this.hiddenTypes, labelFontSize(this.rowH) * CHAR_EM);
     this.gutterW = Math.round(Math.min(fullW, this.width * 0.4));
     this.x0 = (first?.start ?? this.source.info.firstCycle) - 3;

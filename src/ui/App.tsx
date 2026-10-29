@@ -139,7 +139,7 @@ function Viewer({ source, onOpen }: { source: MemorySource; onOpen: (f: File) =>
       }
       const n = command.count;
       const x = c.hover ? c.hover.x : c.gutterW + c.plotW / 2;
-      const rows = Math.max(1, Math.floor((c.height - 28) / c.rowH));
+      const rows = Math.max(1, Math.floor(c.plotH / c.rowH));
       const times = (act: () => void) => {
         for (let j = 0; j < n; j++) act();
       };
@@ -249,6 +249,7 @@ function Viewer({ source, onOpen }: { source: MemorySource; onOpen: (f: File) =>
           break;
         case 'Escape':
           if (c.viewOpen) c.toggleView();
+          else if (c.cursorsOpen) c.toggleCursors();
           else {
             c.select(null);
             c.selectColumn(null);
@@ -256,6 +257,9 @@ function Viewer({ source, onOpen }: { source: MemorySource; onOpen: (f: File) =>
           break;
         case 'o':
           c.toggleView();
+          break;
+        case 'c':
+          c.toggleCursors();
           break;
         case '/':
           document.getElementById('jump')?.focus();

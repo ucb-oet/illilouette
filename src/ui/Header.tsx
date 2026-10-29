@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { fmt } from '../model/present';
 import { suggest, type Suggestion } from '../model/search';
 import { Controller, useController } from './controller';
+import { CursorPanel } from './CursorPanel';
 import { applyThemeChoice, isDark, loadThemeChoice, onThemeChange, type ThemeChoice } from './theme';
 import { ViewPanel } from './ViewPanel';
 
@@ -18,6 +19,7 @@ export function Header({ c, onOpen }: { c: Controller; onOpen: (file: File) => P
   const box = useRef<HTMLInputElement>(null);
   const list = useRef<HTMLUListElement>(null);
   const viewButton = useRef<HTMLDivElement>(null);
+  const cursorButton = useRef<HTMLDivElement>(null);
   // Keep the picked completion in view as the arrow keys move past the list's visible part.
   useEffect(() => {
     if (picked >= 0) list.current?.children[picked]?.scrollIntoView({ block: 'nearest' });
@@ -162,6 +164,19 @@ export function Header({ c, onOpen }: { c: Controller; onOpen: (file: File) => P
           <kbd>r</kbd>Links
         </button>
       </div>
+      <div class="view-anchor" ref={cursorButton}>
+        <button
+          type="button"
+          class="plain icon"
+          aria-expanded={c.cursorsOpen}
+          title="Cursors (c)"
+          aria-label="Cursors"
+          onClick={() => c.toggleCursors()}
+        >
+          <Cursors />
+        </button>
+        <CursorPanel c={c} anchor={cursorButton} />
+      </div>
       <div class="view-anchor" ref={viewButton}>
         <button
           type="button"
@@ -202,6 +217,15 @@ export function Header({ c, onOpen }: { c: Controller; onOpen: (file: File) => P
         />
       </label>
     </header>
+  );
+}
+
+/** Two cursors and the distance between them. */
+function Cursors() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
+      <path d="M2.5 2.5v11M13.5 2.5v11M5 8h6M6.5 6.25 4.75 8l1.75 1.75M9.5 6.25 11.25 8 9.5 9.75" />
+    </svg>
   );
 }
 

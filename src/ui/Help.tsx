@@ -63,7 +63,9 @@ const GROUPS: { name: string; keys: [string[], string][]; examples?: [string, st
       [['i'], 'Cursor before the selected cycle'],
       [['I', 'A'], "Cursor at the selected object's start, or after its end"],
       [['x'], 'Remove the cursor at the selected cycle'],
+      [['Tab'], "In a new cursor's name: its group's color, next or, with Shift, previous"],
       [['Enter'], "Keep a new cursor's name, typed or its cycle; so does Esc"],
+      [['c'], 'Cursors: rename, regroup, remove, or pan to them'],
     ],
   },
   {

@@ -1,4 +1,5 @@
 // The canvas's colors, read from the page's CSS tokens (Catppuccin Latte and Mocha), and the viewer's theme choice.
+import { CURSOR_GROUPS } from './controller';
 
 export interface Theme {
   dark: boolean;
@@ -21,6 +22,12 @@ export interface Theme {
   event: string;
   /** The selection. */
   accent: string;
+  /** Cursor groups' colors, in group order. */
+  cursors: string[];
+  /** Cursor tags' fills and texts, in group order: in Latte a light tint and a deep shade of each color; in Mocha the
+   *  strip's ground and the color. */
+  cursorFills: string[];
+  cursorInks: string[];
   /** Stage colors, in stage order; a type's stage i takes color i. */
   stages: string[];
   /** Opacity of a stage's wash behind its letters. */
@@ -55,6 +62,9 @@ export function readTheme(ctx: CanvasRenderingContext2D): Theme {
     blocked: get('blocked'),
     event: get('event'),
     accent: get('accent'),
+    cursors: Array.from({ length: CURSOR_GROUPS }, (_, i) => get(`cursor-${i}`)),
+    cursorFills: Array.from({ length: CURSOR_GROUPS }, (_, i) => get(`cursor-fill-${i}`)),
+    cursorInks: Array.from({ length: CURSOR_GROUPS }, (_, i) => get(`cursor-ink-${i}`)),
     stages,
     wash,
     hatch: stages.map((color) => hatchPattern(ctx, color, wash, dark)),

@@ -45,6 +45,9 @@ const theme: Theme = {
     ['base', 'mantle', 'crust', 'surface0', 'surface1', 'surface2', 'overlay0', 'overlay1', 'subtext0', 'subtext1', 'text', 'killed', 'blocked', 'event', 'accent'].map((k) => [k, '#4c4f69']),
   ),
   stages: Array.from({ length: 8 }, () => '#209fb5'),
+  cursors: Array.from({ length: 6 }, () => '#04a5e5'),
+  cursorFills: Array.from({ length: 6 }, () => '#bddded'),
+  cursorInks: Array.from({ length: 6 }, () => '#00629e'),
   wash: 0.3,
   hatch: Array.from({ length: 8 }, () => ({}) as CanvasPattern),
 } as Theme;
@@ -139,6 +142,8 @@ for (const file of files) {
       await c.insertAtSelectedEdge('start');
       c.nameCursor(c.naming!, 'start');
       await c.insertAtSelectedEdge('end');
+      // In a second group, with lanes for both in the cursor strip.
+      c.setCursorGroup(c.naming!, 1);
       c.deleteCursor();
       c.scrollSelectedTo('middle');
       c.selectScreenRow('bottom');

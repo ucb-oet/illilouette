@@ -2,7 +2,7 @@
 // lettered cells up close, one run per stage in the middle, solid rows far out.
 import { fmt } from '../model/present';
 import { linkKind, type LinkKind, type RowView } from '../model/source';
-import { Controller, RULER, ZOOM_STEP, type Link } from './controller';
+import { Controller, RULER, ZOOM_STEP, type Cursor, type Link } from './controller';
 import { EDGE, GAP, labelColumns, labelFontSize } from './labels';
 import { MONO, rgba, type Theme } from './theme';
 
@@ -160,9 +160,11 @@ export function drawWaterfall(ctx: CanvasRenderingContext2D, c: Controller, th: 
     const w = Math.max(4, cw);
     drawBrackets(ctx, th, c.xOf(c.column) + (cw - w) / 2, c.rowY(c.selected), w, rowH);
   }
-  // Cursors: lines on the clock edges they mark, in the gaps between cells.
-  ctx.fillStyle = rgba(th.text, 0.8);
-  for (const k of c.cursors) ctx.fillRect(c.xOf(k.edge) - 0.75, RULER, 1.5, H - RULER);
+  // Cursors: lines in their groups' colors on the clock edges they mark, in the gaps between cells.
+  for (const k of c.cursors) {
+    ctx.fillStyle = th.cursors[k.group];
+    ctx.fillRect(c.xOf(k.edge) - 0.75, RULER, 1.5, c.plotBottom - RULER);
+  }
   ctx.restore();
 
   // ---- label column
@@ -208,9 +210,6 @@ export function drawWaterfall(ctx: CanvasRenderingContext2D, c: Controller, th: 
     ctx.fillStyle = rgba(th.accent, th.dark ? 0.3 : 0.25);
     ctx.fillRect(c.xOf(c.column), 0, Math.max(1, cw), RULER - 1);
   }
-  // Tick labels give way to the cursors' texts.
-  const marks = layoutCursors(ctx, c);
-  const boxes = [...marks.tags, ...marks.gaps].filter((b): b is RulerBox => b !== null);
   ctx.font = MONO(11);
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'left';
@@ -219,34 +218,34 @@ export function drawWaterfall(ctx: CanvasRenderingContext2D, c: Controller, th: 
     if (x < gx) continue;
     ctx.fillStyle = th.surface2;
     ctx.fillRect(x, RULER - 7, 1, 6);
-    const text = fmt(k);
-    const w = ctx.measureText(text).width;
-    if (boxes.some((b) => x + 4 < b.left + b.w + 3 && x + 4 + w > b.left - 3)) continue;
     ctx.fillStyle = th.subtext0;
-    ctx.fillText(text, x + 4, RULER / 2);
+    ctx.fillText(fmt(k), x + 4, RULER / 2);
   }
-  drawCursorMarks(ctx, c, th, marks);
+  // The ruler is left to time: cursors cross it as lines only, their tags and distances in the strip below.
+  for (const k of c.cursors) {
+    ctx.fillStyle = th.cursors[k.group];
+    ctx.fillRect(c.xOf(k.edge) - 0.75, 0, 1.5, RULER);
+  }
   ctx.restore();
+  if (c.cursors.length) drawCursorStrip(ctx, c, th);
 }
 
-/** A text in a box on the ruler. */
-interface RulerBox {
+/** A text in a box on a lane of the cursor strip. */
+interface TagBox {
   left: number;
   w: number;
   text: string;
 }
 
-/** Where the cursors' texts go on the ruler: each cursor's name and cycle in a tag beside its line, right of it as tick labels
- *  are, or left of it when that would run into the next cursor; none when neither side has room. Between neighbors,
- *  the gap, such as "Δ 4", where it fits between their tags. */
-function layoutCursors(ctx: CanvasRenderingContext2D, c: Controller): { tags: (RulerBox | null)[]; gaps: (RulerBox | null)[] } {
-  ctx.font = MONO(11, 600);
-  const xs = c.cursors.map((k) => c.xOf(k.edge));
-  const tags: (RulerBox | null)[] = [];
+/** Where a lane's tags go: each cursor's name and cycle beside its line, right of it as tick labels are, or left of it
+ *  when that would run into the next cursor; none when neither side has room. */
+function layoutTags(ctx: CanvasRenderingContext2D, c: Controller, lane: Cursor[]): (TagBox | null)[] {
+  const xs = lane.map((k) => c.xOf(k.edge));
+  const tags: (TagBox | null)[] = [];
   // Where the last tag or line ends, which the next tag must clear.
   let floor = -Infinity;
   xs.forEach((x, i) => {
-    const { edge, name } = c.cursors[i];
+    const { edge, name } = lane[i];
     const text = name ? `${name} · ${fmt(edge)}` : fmt(edge);
     const w = ctx.measureText(text).width + 10;
     const ceiling = Math.min(c.width, i + 1 < xs.length ? xs[i + 1] - 2 : Infinity);
@@ -256,51 +255,71 @@ function layoutCursors(ctx: CanvasRenderingContext2D, c: Controller): { tags: (R
     tags.push(left === null ? null : { left, w, text });
     floor = Math.max(x, left === null ? x : left + w) + 2;
   });
-  const gaps = xs.slice(1).map((x, i): RulerBox | null => {
-    const text = `Δ ${fmt(c.cursors[i + 1].edge - c.cursors[i].edge)}`;
-    const w = ctx.measureText(text).width + 10;
-    const from = Math.max(c.gutterW, xs[i], tags[i] ? tags[i]!.left + tags[i]!.w : -Infinity);
-    const to = Math.min(c.width, x, tags[i + 1]?.left ?? Infinity);
-    return to - from >= w + 8 ? { left: (from + to - w) / 2, w, text } : null;
-  });
-  return { tags, gaps };
+  return tags;
 }
 
-/** The cursors on the ruler: their lines, a line along the ruler's foot between neighbors, which leaves the tick
- *  labels readable, and the texts laid out by layoutCursors. */
-function drawCursorMarks(ctx: CanvasRenderingContext2D, c: Controller, th: Theme, marks: ReturnType<typeof layoutCursors>): void {
-  const xs = c.cursors.map((k) => c.xOf(k.edge));
-  ctx.font = MONO(11, 600);
+/** The cursor strip along the bottom of the waterfall: a lane for each group with cursors, its color in the label
+ *  column. A lane holds its group's tags, boxes outlined in its color with its fill and ink, and between neighbors a
+ *  line in its color with the distance as plain text in its ink, the line breaking around it. A cursor being named has
+ *  its name box over its tag. */
+function drawCursorStrip(ctx: CanvasRenderingContext2D, c: Controller, th: Theme): void {
+  const top = c.plotBottom;
+  ctx.save();
+  ctx.fillStyle = th.mantle;
+  ctx.fillRect(0, top, c.width, c.stripH);
+  ctx.fillStyle = th.surface0;
+  ctx.fillRect(0, top, c.width, 1);
+  if (c.gutterW > 0) ctx.fillRect(c.gutterW - 1, top, 1, c.stripH);
+  for (const g of c.cursorLanes) {
+    ctx.fillStyle = th.cursors[g];
+    rr(ctx, EDGE, c.laneY(g) - 1.5, 16, 3, 1.5);
+    ctx.fill();
+  }
+  ctx.beginPath();
+  ctx.rect(c.gutterW, top, c.width - c.gutterW, c.stripH);
+  ctx.clip();
+  for (const k of c.cursors) {
+    ctx.fillStyle = th.cursors[k.group];
+    ctx.fillRect(c.xOf(k.edge) - 0.75, top, 1.5, c.stripH);
+  }
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'left';
-  for (let i = 0; i + 1 < xs.length; i++) {
-    const a = Math.max(xs[i], c.gutterW);
-    const b = Math.min(xs[i + 1], c.width);
-    if (b <= a) continue;
-    ctx.fillStyle = rgba(th.text, 0.5);
-    ctx.fillRect(a, RULER - 4, b - a, 1.5);
-    const g = marks.gaps[i];
-    if (!g) continue;
-    rr(ctx, g.left, 6, g.w, 16, 4);
-    ctx.fillStyle = th.mantle;
-    ctx.fill();
-    ctx.strokeStyle = rgba(th.text, 0.5);
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    ctx.fillStyle = th.text;
-    ctx.fillText(g.text, g.left + 5, RULER / 2);
+  for (const g of c.cursorLanes) {
+    const y = c.laneY(g);
+    const color = th.cursors[g];
+    const lane = c.cursors.filter((k) => k.group === g);
+    const xs = lane.map((k) => c.xOf(k.edge));
+    ctx.font = MONO(11, 600);
+    const tags = layoutTags(ctx, c, lane);
+    for (let i = 0; i + 1 < xs.length; i++) {
+      ctx.fillStyle = color;
+      ctx.fillRect(xs[i], y - 0.75, xs[i + 1] - xs[i], 1.5);
+      const text = `Δ ${fmt(lane[i + 1].edge - lane[i].edge)}`;
+      ctx.font = MONO(11);
+      const w = ctx.measureText(text).width + 10;
+      const from = Math.max(c.gutterW, xs[i], tags[i] ? tags[i]!.left + tags[i]!.w : -Infinity);
+      const to = Math.min(c.width, xs[i + 1], tags[i + 1]?.left ?? Infinity);
+      if (to - from < w + 8) continue;
+      const left = (from + to - w) / 2;
+      ctx.fillStyle = th.mantle;
+      ctx.fillRect(left, y - 7, w, 14);
+      ctx.fillStyle = th.cursorInks[g];
+      ctx.fillText(text, left + 5, y + 0.5);
+    }
+    ctx.font = MONO(11, 600);
+    tags.forEach((t, i) => {
+      if (!t || lane[i].edge === c.naming) return;
+      rr(ctx, t.left + 0.5, y - 7.5, t.w - 1, 15, 4);
+      ctx.fillStyle = th.cursorFills[g];
+      ctx.fill();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.fillStyle = th.cursorInks[g];
+      ctx.fillText(t.text, t.left + 5, y + 0.5);
+    });
   }
-  xs.forEach((x, i) => {
-    ctx.fillStyle = rgba(th.text, 0.8);
-    ctx.fillRect(x - 0.75, 0, 1.5, RULER);
-    const t = marks.tags[i];
-    if (!t) return;
-    rr(ctx, t.left, 6, t.w, 16, 4);
-    ctx.fillStyle = th.text;
-    ctx.fill();
-    ctx.fillStyle = th.base;
-    ctx.fillText(t.text, t.left + 5, RULER / 2);
-  });
+  ctx.restore();
 }
 
 function padOf(rowH: number): number {

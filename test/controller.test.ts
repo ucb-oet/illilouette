@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { MemorySource } from '../src/model/memory';
 import { segmentAt } from '../src/model/present';
-import { Controller, RULER, ZOOM_STEP } from '../src/ui/controller';
+import { Controller, LANE, RULER, ZOOM_STEP } from '../src/ui/controller';
 import { CHAR_EM, labelColumns, labelFontSize } from '../src/ui/labels';
 import { linksShown, detailOf } from '../src/ui/render';
 import { build, FETCH, INSTRUCTION, open, pipeline, staircase } from './build';
@@ -170,15 +170,58 @@ describe('Cursors', () => {
     c.insertCursor();
     expect(c.naming).toBe(null);
     expect(c.cursors).toEqual([
-      { edge: 211, name: 'decode' },
-      { edge: 215, name: '' },
+      { edge: 211, name: 'decode', group: 0 },
+      { edge: 215, name: '', group: 0 },
     ]);
     c.selectColumn(213);
     c.deleteCursor();
     expect(c.cursors.length).toBe(2);
     c.selectColumn(215);
     c.deleteCursor();
-    expect(c.cursors).toEqual([{ edge: 211, name: 'decode' }]);
+    expect(c.cursors).toEqual([{ edge: 211, name: 'decode', group: 0 }]);
+  });
+
+  it('go in the group last chosen, each group with a lane in the strip, which the rows give room to', async () => {
+    const c = await stairs();
+    const rowsHeight = c.plotH;
+    expect(c.stripH).toBe(0);
+    c.selectColumn(211);
+    c.insertCursor();
+    c.nameCursor(211, '');
+    c.selectColumn(215);
+    c.insertCursor();
+    // Chosen while its name is typed, which new cursors then take too.
+    c.setCursorGroup(215, 3);
+    c.nameCursor(215, '');
+    c.selectColumn(219);
+    c.insertCursor();
+    c.nameCursor(219, '');
+    expect(c.cursors.map((k) => [k.edge, k.group])).toEqual([[211, 0], [215, 3], [219, 3]]);
+    expect(c.cursorLanes).toEqual([0, 3]);
+    expect(c.stripH).toBe(2 * LANE + 6);
+    expect(c.plotH).toBe(rowsHeight - c.stripH);
+    expect(c.laneY(3) - c.laneY(0)).toBe(LANE);
+    // The strip is not rows.
+    expect(c.rowAtY(c.plotBottom + 2)).toBe(null);
+    c.removeCursor(211);
+    expect(c.cursorLanes).toEqual([3]);
+    expect(c.stripH).toBe(LANE + 6);
+  });
+
+  it('pan to a cursor from the panel, selecting the cycle its edge starts, in the middle of the view', async () => {
+    const c = await stairs();
+    c.selectColumn(211);
+    c.insertCursor();
+    c.nameCursor(211, 'decode');
+    c.x0 = 500;
+    c.panToCursor(211);
+    expect(c.column).toBe(211);
+    expect(c.x0 + c.visibleCycles / 2).toBeCloseTo(211);
+    c.toggleView();
+    c.toggleCursors();
+    expect([c.cursorsOpen, c.viewOpen]).toEqual([true, false]);
+    c.toggleView();
+    expect([c.cursorsOpen, c.viewOpen]).toEqual([false, true]);
   });
 
   it('go at the selected object\'s start and after its end with I and A, and x takes the one A put', async () => {

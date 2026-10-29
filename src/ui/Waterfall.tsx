@@ -2,7 +2,7 @@
 import { useEffect, useRef } from 'preact/hooks';
 import { effectText, endText, fieldText, fmt, objectName, outcomeText, segmentAt, shortName } from '../model/present';
 import type { RowView } from '../model/source';
-import { Controller, RULER, useController } from './controller';
+import { Controller, CURSOR_GROUPS, RULER, useController } from './controller';
 import { drawWaterfall } from './render';
 import { onThemeChange, readTheme, type Theme } from './theme';
 
@@ -87,11 +87,16 @@ export function Waterfall({ c }: { c: Controller }) {
         // A click selects the object under it, and the cycle, as a click in vim puts its cursor on a line and column;
         // a click on the label column keeps the cycle.
         const { x, y } = local(ev);
-        const row = c.rowAtY(y);
-        const r = row === null ? undefined : c.row(row);
-        c.select(r && !c.hiddenTypes.has(r.type) ? row : null);
         const cycle = c.cycleAtX(x);
-        if (y > RULER && cycle !== null) c.selectColumn(cycle);
+        // On the cursor strip, the cycle only; the selected object stays.
+        if (y >= c.plotBottom) {
+          if (cycle !== null) c.selectColumn(cycle);
+        } else {
+          const row = c.rowAtY(y);
+          const r = row === null ? undefined : c.row(row);
+          c.select(r && !c.hiddenTypes.has(r.type) ? row : null);
+          if (y > RULER && cycle !== null) c.selectColumn(cycle);
+        }
       }
       drag = null;
     };
@@ -167,7 +172,8 @@ export function Waterfall({ c }: { c: Controller }) {
   );
 }
 
-/** The box a new cursor's name is typed in, on the ruler at its line, filled with its cycle. Enter or Esc keeps the
+/** The box a new cursor's name is typed in, on its lane of the cursor strip at its line, filled with its cycle, beside
+ *  the groups' colors: a click on one, or Tab and Shift+Tab, moves the cursor to that group. Enter or Esc keeps the
  *  name, as Esc leaves vim's insert mode; so does clicking elsewhere. */
 function CursorName({ c }: { c: Controller }) {
   useController(c);
@@ -179,29 +185,60 @@ function CursorName({ c }: { c: Controller }) {
     box.current?.focus();
     box.current?.select();
   }, [edge]);
-  if (edge === null) return null;
+  const cursor = edge === null ? undefined : c.cursors.find((k) => k.edge === edge);
+  if (edge === null || !cursor) return null;
   const keep = () => {
     if (done.current) return;
     done.current = true;
     c.nameCursor(edge, box.current?.value ?? '');
   };
+  const choose = (g: number) => c.setCursorGroup(edge, (g + CURSOR_GROUPS) % CURSOR_GROUPS);
+  // The box and the colors' width, to keep them on screen.
+  const width = 140 + 8 + CURSOR_GROUPS * 16 + 8;
   return (
-    <input
-      ref={box}
+    <div
       class="cursor-name"
-      style={{ left: `${Math.max(c.gutterW, Math.min(c.xOf(edge), c.width - 140))}px` }}
-      defaultValue={fmt(edge)}
-      aria-label="Cursor name"
-      spellcheck={false}
-      autocomplete="off"
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === 'Escape') {
-          e.preventDefault();
-          keep();
-        }
+      style={{
+        left: `${Math.max(c.gutterW, Math.min(c.xOf(edge), c.width - width))}px`,
+        top: `${c.laneY(cursor.group) - 9}px`,
+        '--group': `var(--cursor-${cursor.group})`,
+        '--fill': `var(--cursor-fill-${cursor.group})`,
+        '--ink': `var(--cursor-ink-${cursor.group})`,
       }}
-      onBlur={keep}
-    />
+    >
+      <input
+        ref={box}
+        defaultValue={fmt(edge)}
+        aria-label="Cursor name"
+        spellcheck={false}
+        autocomplete="off"
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === 'Escape') {
+            e.preventDefault();
+            keep();
+          } else if (e.key === 'Tab') {
+            e.preventDefault();
+            choose(cursor.group + (e.shiftKey ? -1 : 1));
+          }
+        }}
+        onBlur={keep}
+      />
+      <span class="swatches" role="radiogroup" aria-label="Cursor group">
+        {Array.from({ length: CURSOR_GROUPS }, (_, g) => (
+          <button
+            key={g}
+            type="button"
+            role="radio"
+            aria-checked={g === cursor.group}
+            aria-label={`Group ${g + 1}`}
+            style={{ background: `var(--cursor-${g})` }}
+            // Kept from taking the focus, so that the name stays open for typing.
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => choose(g)}
+          />
+        ))}
+      </span>
+    </div>
   );
 }
 
