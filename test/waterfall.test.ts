@@ -1,6 +1,7 @@
+import { gzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import { Reader } from '../src/file/pb';
-import { decodeWaterfall, WaterfallError } from '../src/file/waterfall';
+import { decodeWaterfall, readWaterfall, WaterfallError } from '../src/file/waterfall';
 import { encode, pipeline, staircase } from './build';
 
 describe('decodeWaterfall', () => {
@@ -26,6 +27,22 @@ describe('decodeWaterfall', () => {
   it('rejects a file cut short', () => {
     const bytes = encode(pipeline());
     expect(() => decodeWaterfall(bytes.subarray(0, bytes.length - 3))).toThrow(WaterfallError);
+  });
+});
+
+describe('readWaterfall', () => {
+  it('reads a file as written or gzipped, by its first bytes', async () => {
+    const bytes = encode(pipeline());
+    expect(await readWaterfall(bytes)).toEqual(pipeline());
+    expect(await readWaterfall(new Uint8Array(gzipSync(bytes)))).toEqual(pipeline());
+  });
+
+  it('rejects a gzipped file cut short, or one that is not a waterfall inside', async () => {
+    const gzipped = gzipSync(encode(pipeline()));
+    await expect(readWaterfall(new Uint8Array(gzipped.subarray(0, gzipped.length - 20)))).rejects.toThrow(
+      new WaterfallError('This gzipped file is damaged or cut short.'),
+    );
+    await expect(readWaterfall(new Uint8Array(gzipSync('not a waterfall')))).rejects.toThrow(WaterfallError);
   });
 });
 

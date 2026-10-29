@@ -190,7 +190,7 @@ export function Header({ c, onOpen }: { c: Controller; onOpen: (file: File) => P
         Open…
         <input
           type="file"
-          accept=".pb,.waterfall"
+          accept=".pb,.waterfall,.gz"
           hidden
           onChange={(e) => {
             const input = e.target as HTMLInputElement;

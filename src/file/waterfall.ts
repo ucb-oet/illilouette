@@ -1,4 +1,5 @@
-// Decodes a waterfall file, proto/waterfall.proto, into plain objects. Field comments are in the schema.
+// Decodes a waterfall file, proto/waterfall.proto, into plain objects, from the file as written or gzipped. Field
+// comments are in the schema.
 import { Reader, Wire } from './pb';
 
 export const FORMAT_VERSION = 1;
@@ -68,6 +69,24 @@ export type Role = 'none' | 'parent' | 'abortedBy' | 'blockedBy';
 export const ROLES: readonly Role[] = ['none', 'parent', 'abortedBy', 'blockedBy'];
 
 export class WaterfallError extends Error {}
+
+/** Reads a waterfall file's bytes, gzipped or not. A gzipped file starts with gzip's magic number, 1f 8b, and a
+ *  waterfall file never does: its first byte is a protobuf field tag, and as a tag 0x1f would have wire type 7, which
+ *  protobuf does not use. So the bytes say which it is, whatever the file is named. */
+export async function readWaterfall(bytes: Uint8Array): Promise<Waterfall> {
+  return decodeWaterfall(bytes[0] === 0x1f && bytes[1] === 0x8b ? await gunzip(bytes) : bytes);
+}
+
+/** Decompresses gzipped bytes with the browser's own DecompressionStream. */
+async function gunzip(bytes: Uint8Array): Promise<Uint8Array> {
+  try {
+    const stream = new Blob([bytes as BlobPart]).stream().pipeThrough(new DecompressionStream('gzip'));
+    return new Uint8Array(await new Response(stream).arrayBuffer());
+  } catch {
+    // The browser's own message, such as Chromium's "Failed to fetch", says nothing more.
+    throw new WaterfallError('This gzipped file is damaged or cut short.');
+  }
+}
 
 export function decodeWaterfall(bytes: Uint8Array): Waterfall {
   const w: Waterfall = { version: 0, title: '', firstCycle: 0, lastCycle: 0, strings: [], sites: [], types: [], rows: [] };

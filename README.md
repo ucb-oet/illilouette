@@ -30,7 +30,7 @@ npm test           # runs the tests, and the smoke tests over Chipyard's waterfa
 npm run build      # type-checks, then writes the static page to dist/
 ```
 
-Open the page and drop a waterfall file on it, or choose one. Drop or open another at any time to replace it; one that cannot be read leaves the current file open, and the status bar says why.
+Open the page and drop a waterfall file on it, or choose one. A gzipped file, such as `vec-strlen.waterfall.gz`, opens as it is, at about a quarter of the size. Drop or open another at any time to replace it; one that cannot be read leaves the current file open, and the status bar says why.
 
 ## Using it
 

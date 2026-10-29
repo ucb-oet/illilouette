@@ -1,6 +1,6 @@
 // The page: a landing that opens a waterfall file, then the viewer with its keys.
 import { useEffect, useMemo, useState } from 'preact/hooks';
-import { decodeWaterfall, WaterfallError } from '../file/waterfall';
+import { readWaterfall, WaterfallError } from '../file/waterfall';
 import { MemorySource } from '../model/memory';
 import { fmt, objectName, segmentAt } from '../model/present';
 import { Controller, useController, ZOOM_STEP } from './controller';
@@ -15,10 +15,10 @@ import { Waterfall } from './Waterfall';
 
 applyThemeChoice(loadThemeChoice());
 
-/** Reads a waterfall file; on failure, throws an error whose message names the file and the problem. */
+/** Reads a waterfall file, gzipped or not; on failure, throws an error whose message names the file and the problem. */
 async function read(file: File): Promise<MemorySource> {
   try {
-    return new MemorySource(decodeWaterfall(new Uint8Array(await file.arrayBuffer())));
+    return new MemorySource(await readWaterfall(new Uint8Array(await file.arrayBuffer())));
   } catch (e) {
     throw new Error(e instanceof WaterfallError ? `${file.name}: ${e.message}` : `${file.name} could not be read: ${String(e)}`);
   }
@@ -63,14 +63,14 @@ function Landing({ onOpen }: { onOpen: (f: File) => Promise<void> }) {
       >
         <h1>illilouette</h1>
         <p>
-          A pipeline waterfall for EventTrace. Drop a waterfall file here, or choose one. Chipyard's{' '}
+          A pipeline waterfall for EventTrace. Drop a waterfall file here, gzipped or not, or choose one. Chipyard's{' '}
           <code>eventtrace waterfall</code> writes it from a trace, its manifest, and the design's view.
         </p>
         <label class="plain">
           {busy ? 'Opening…' : 'Choose a file'}
           <input
             type="file"
-            accept=".pb,.waterfall"
+            accept=".pb,.waterfall,.gz"
             onChange={(e) => {
               const input = e.target as HTMLInputElement;
               const f = input.files?.[0];
