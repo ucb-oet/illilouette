@@ -4,7 +4,7 @@ A pipeline waterfall viewer for [EventTrace](https://github.com/ucb-bar/chipyard
 
 The viewer draws a **waterfall file**, `proto/waterfall.proto`, which a post-processor writes from a trace, its manifest, and the design's view configuration. Everything the viewer draws is already derived in that file: stages, held cycles, how each object ended, the objects its events name, and labels such as disassembly. The viewer applies none of the trace's rules.
 
-It is hosted at https://ucb-oet.github.io/illilouette/, built from `main` on every push. A file you open there is read in your browser and never leaves it: the page has no server and sends nothing.
+It is hosted at https://ucb-oet.github.io/illilouette/, built from `main` on every push. A file you open there is read in your browser and never leaves it: the page has no server and sends nothing. Without a trace at hand, open the example, `vec-strlen` traced on Rocket with Saturn's vector unit.
 
 ## Making a waterfall file
 
@@ -93,6 +93,7 @@ The box counts the matches as you type. Enter goes to the first match after the 
 
 - `proto/waterfall.proto`: the file format.
 - `.github/workflows/pages.yml`: on every push to `main`, runs the tests other than the smoke tests, which need Chipyard's files, builds the page, and publishes it to GitHub Pages.
+- `public/example/`: the example the landing page opens, served with the page. Regenerate it from Chipyard's output when the format changes, as `src/example.ts` shows; `test/example.test.ts` checks that it opens and carries the link roles.
 - `src/file/`: protobuf decoding of the file.
 - `src/model/`: the source interface the drawing code reads rows through, the in-memory source, and text derived for display.
 - `src/ui/`: the page: controller, canvas renderer, timeline bar, detail panel, header.

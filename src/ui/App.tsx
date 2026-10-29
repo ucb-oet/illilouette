@@ -1,5 +1,6 @@
 // The page: a landing that opens a waterfall file, then the viewer with its keys.
 import { useEffect, useMemo, useState } from 'preact/hooks';
+import { EXAMPLE } from '../example';
 import { readWaterfall, WaterfallError } from '../file/waterfall';
 import { MemorySource } from '../model/memory';
 import { fmt, objectName, segmentAt } from '../model/present';
@@ -30,16 +31,23 @@ export function App() {
   return source ? <Viewer key={source.info.title + source.info.rowCount} source={source} onOpen={open} /> : <Landing onOpen={open} />;
 }
 
-/** Opening the first file. Its errors show here; the viewer's show in its status bar. */
+/** Fetches the example as a file. */
+async function fetchExample(): Promise<File> {
+  const response = await fetch(EXAMPLE);
+  if (!response.ok) throw new Error(`The example could not be fetched: ${response.status} ${response.statusText}.`);
+  return new File([await response.blob()], EXAMPLE.split('/').pop()!);
+}
+
+/** Opening the first file, or the example. Errors show here; the viewer's show in its status bar. */
 function Landing({ onOpen }: { onOpen: (f: File) => Promise<void> }) {
   const [over, setOver] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const open = async (file: File) => {
+  const open = async (file: File | (() => Promise<File>)) => {
     setBusy(true);
     setError('');
     try {
-      await onOpen(file);
+      await onOpen(file instanceof File ? file : await file());
     } catch (e) {
       setError((e as Error).message);
       setBusy(false);
@@ -66,20 +74,28 @@ function Landing({ onOpen }: { onOpen: (f: File) => Promise<void> }) {
           A pipeline waterfall for EventTrace. Drop a waterfall file here, gzipped or not, or choose one. Chipyard's{' '}
           <code>eventtrace waterfall</code> writes it from a trace, its manifest, and the design's view.
         </p>
-        <label class="plain">
-          {busy ? 'Opening…' : 'Choose a file'}
-          <input
-            type="file"
-            accept=".pb,.waterfall,.gz"
-            onChange={(e) => {
-              const input = e.target as HTMLInputElement;
-              const f = input.files?.[0];
-              // Cleared, so that choosing the same file again, after fixing it, opens it again.
-              input.value = '';
-              if (f) void open(f);
-            }}
-          />
-        </label>
+        <div class="choices">
+          <label class="plain">
+            {busy ? 'Opening…' : 'Choose a file'}
+            <input
+              type="file"
+              accept=".pb,.waterfall,.gz"
+              onChange={(e) => {
+                const input = e.target as HTMLInputElement;
+                const f = input.files?.[0];
+                // Cleared, so that choosing the same file again, after fixing it, opens it again.
+                input.value = '';
+                if (f) void open(f);
+              }}
+            />
+          </label>
+          <button type="button" class="plain" disabled={busy} onClick={() => void open(fetchExample)}>
+            Open the example
+          </button>
+        </div>
+        <p class="note">
+          The example is <code>vec-strlen</code>, a vectorized strlen, traced on Rocket with Saturn's vector unit.
+        </p>
         {error && <p class="error">{error}</p>}
         {/* TODO: connect to a local server for files too large to load in the browser. */}
       </div>
