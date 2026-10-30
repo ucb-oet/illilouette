@@ -1,29 +1,17 @@
 // The cursor panel (c).
-import type { RefObject } from 'preact';
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useState } from 'preact/hooks';
 import { fmt } from '../model/present';
 import { Controller, CURSOR_GROUPS, useController } from './controller';
 
-export function CursorPanel({ c, anchor }: { c: Controller; anchor: RefObject<HTMLElement> }) {
+export function CursorPanel({ c }: { c: Controller }) {
   useController(c);
-  const panel = useRef<HTMLDivElement>(null);
   // The edge of the cursor whose name is being edited, or whose colors are offered.
   const [renaming, setRenaming] = useState<number | null>(null);
   const [regrouping, setRegrouping] = useState<number | null>(null);
-  // A click outside the panel and its button closes it.
-  useEffect(() => {
-    if (!c.cursorsOpen) return;
-    const onDown = (ev: PointerEvent) => {
-      const target = ev.target as Node;
-      if (!panel.current?.contains(target) && !anchor.current?.contains(target)) c.toggleCursors();
-    };
-    window.addEventListener('pointerdown', onDown, true);
-    return () => window.removeEventListener('pointerdown', onDown, true);
-  }, [c, c.cursorsOpen]);
-  if (!c.cursorsOpen) return null;
+  if (c.panel !== 'cursors') return null;
 
   return (
-    <div class="view-panel cursor-panel" ref={panel} role="dialog" aria-label="Cursors">
+    <div class="view-panel cursor-panel" role="dialog" aria-label="Cursors">
       <h3>
         Cursors <kbd>c</kbd>
       </h3>

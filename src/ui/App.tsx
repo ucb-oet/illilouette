@@ -208,10 +208,8 @@ function Viewer({ source, onOpen }: { source: MemorySource; onOpen: (f: File) =>
           void c.moveInColumn(command.key === 'J' ? 1 : -1, n);
           break;
         case 'gg':
-          void c.selectEdgeRow('first');
-          break;
         case 'G':
-          void c.selectEdgeRow('last');
+          void c.selectEdgeRow(command.key === 'gg' ? 'first' : 'last');
           break;
         case 'H':
           c.selectScreenRow('top');
@@ -251,33 +249,28 @@ function Viewer({ source, onOpen }: { source: MemorySource; onOpen: (f: File) =>
           c.insertCursor();
           break;
         case 'I':
-          void c.insertAtSelectedEdge('start');
-          break;
         case 'A':
-          void c.insertAtSelectedEdge('end');
+          void c.insertAtSelectedEdge(command.key === 'I' ? 'start' : 'end');
           break;
         case 'x':
           c.deleteCursor();
           break;
         case '0':
-          void c.toSelectedEdge('start');
-          break;
         case '$':
-          void c.toSelectedEdge('end');
+          void c.toSelectedEdge(command.key === '0' ? 'start' : 'end');
           break;
         case 'Escape':
-          if (c.viewOpen) c.toggleView();
-          else if (c.cursorsOpen) c.toggleCursors();
+          if (c.panel) c.togglePanel(c.panel);
           else {
             c.select(null);
             c.selectColumn(null);
           }
           break;
         case 'o':
-          c.toggleView();
+          c.togglePanel('view');
           break;
         case 'c':
-          c.toggleCursors();
+          c.togglePanel('cursors');
           break;
         case '/':
           document.getElementById('jump')?.focus();
@@ -296,10 +289,12 @@ function Viewer({ source, onOpen }: { source: MemorySource; onOpen: (f: File) =>
     const clearNotice = () => {
       if (c.notice) c.say('');
     };
-    window.addEventListener('keydown', clearNotice, true);
-    window.addEventListener('pointerdown', clearNotice, true);
-    window.addEventListener('wheel', clearNotice, { capture: true, passive: true });
-    window.addEventListener('keydown', onKey);
+    const listening = new AbortController();
+    const signal = listening.signal;
+    window.addEventListener('keydown', clearNotice, { capture: true, signal });
+    window.addEventListener('pointerdown', clearNotice, { capture: true, signal });
+    window.addEventListener('wheel', clearNotice, { capture: true, passive: true, signal });
+    window.addEventListener('keydown', onKey, { signal });
 
     // dragenter and dragleave fire per element crossed; counting keeps the outline while over the page.
     const hasFiles = (ev: DragEvent) => Array.from(ev.dataTransfer?.types ?? []).includes('Files');
@@ -328,20 +323,11 @@ function Viewer({ source, onOpen }: { source: MemorySource; onOpen: (f: File) =>
       const f = ev.dataTransfer?.files[0];
       if (f) onOpen(f).catch((err: Error) => c.say(err.message));
     };
-    window.addEventListener('dragenter', onDragEnter);
-    window.addEventListener('dragover', onDragOver);
-    window.addEventListener('dragleave', onDragLeave);
-    window.addEventListener('drop', onDrop);
-    return () => {
-      window.removeEventListener('dragenter', onDragEnter);
-      window.removeEventListener('dragover', onDragOver);
-      window.removeEventListener('dragleave', onDragLeave);
-      window.removeEventListener('drop', onDrop);
-      window.removeEventListener('keydown', clearNotice, true);
-      window.removeEventListener('pointerdown', clearNotice, true);
-      window.removeEventListener('wheel', clearNotice, true);
-      window.removeEventListener('keydown', onKey);
-    };
+    window.addEventListener('dragenter', onDragEnter, { signal });
+    window.addEventListener('dragover', onDragOver, { signal });
+    window.addEventListener('dragleave', onDragLeave, { signal });
+    window.addEventListener('drop', onDrop, { signal });
+    return () => listening.abort();
   }, [c]);
 
   return (
@@ -377,11 +363,12 @@ function Status({ c }: { c: Controller }) {
     // Over the label column.
     readout = objectName(t.name, r.id);
   }
+  const note = c.keysPending ? `${c.keysPending}…` : c.notice;
   const zoom = `${Number.isInteger(c.cellW) ? c.cellW : c.cellW.toFixed(2)} px/cycle · ${c.rowH} px rows · ${DETAIL_NAMES[detailOf(c)]}`;
   return (
     <footer class="status">
       <span class="readout">
-        {c.keysPending ? <span class="notice">{c.keysPending}…</span> : c.notice ? <span class="notice">{c.notice}</span> : readout}
+        {note ? <span class="notice">{note}</span> : readout}
       </span>
       <span>
         {zoom} · <kbd>?</kbd> keys

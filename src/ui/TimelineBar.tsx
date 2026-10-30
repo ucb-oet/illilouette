@@ -94,16 +94,15 @@ export function TimelineBar({ c }: { c: Controller }) {
     };
     const onMove = (ev: PointerEvent) => dragging && move(ev);
     const onUp = () => (dragging = false);
-    el.addEventListener('pointerdown', onDown);
-    el.addEventListener('pointermove', onMove);
-    el.addEventListener('pointerup', onUp);
+    const listening = new AbortController();
+    el.addEventListener('pointerdown', onDown, { signal: listening.signal });
+    el.addEventListener('pointermove', onMove, { signal: listening.signal });
+    el.addEventListener('pointerup', onUp, { signal: listening.signal });
     return () => {
       observer.disconnect();
       unsubscribe();
       stopTheme();
-      el.removeEventListener('pointerdown', onDown);
-      el.removeEventListener('pointermove', onMove);
-      el.removeEventListener('pointerup', onUp);
+      listening.abort();
     };
   }, [c]);
 

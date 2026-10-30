@@ -3,7 +3,7 @@ import { useEffect, useState } from 'preact/hooks';
 import { fmt, objectName, segmentAt } from '../model/present';
 import { parseQuery, type Match, type TypeWords } from '../model/search';
 import { linkKind, type LinkKind, type RowFilter, type RowView, type Source } from '../model/source';
-import { CHAR_EM, labelColumns, labelFontSize } from './labels';
+import { CHAR_EM, depth, labelColumns, labelFontSize } from './labels';
 
 const CHUNK = 256;
 const MAX_CHUNKS = 64;
@@ -27,11 +27,8 @@ function zoomSize(drawn: number, exact: number, factor: number, key: boolean, mi
   const snap = (v: number) => (v >= whole ? Math.round(v) : v);
   const clampTo = (v: number) => Math.min(max, Math.max(min, v));
   if (key) {
-    let next = clampTo(drawn * factor);
-    if (next >= whole) {
-      next = Math.round(next);
-      if (next === drawn) next = clampTo(drawn + (factor > 1 ? 1 : -1));
-    }
+    let next = snap(clampTo(drawn * factor));
+    if (next >= whole && next === drawn) next = clampTo(drawn + (factor > 1 ? 1 : -1));
     return { drawn: next, exact: next };
   }
   const level = clampTo((snap(exact) === drawn ? exact : drawn) * factor);
@@ -83,7 +80,8 @@ export class Controller {
   column: number | null = null;
   hiddenTypes = new Set<number>();
   hideAborted = false;
-  viewOpen = false;
+  /** The header's open panel: one at a time, as both hang from it. */
+  panel: 'view' | 'cursors' | null = null;
   /** Keys waiting for the rest of their command, such as a count or the g of gg. */
   keysPending = '';
   /** The type drawn in full; every other type keeps only its bars. */
@@ -100,7 +98,6 @@ export class Controller {
   naming: number | null = null;
   /** The group a new cursor goes in: the one last chosen. */
   cursorGroup = 0;
-  cursorsOpen = false;
   helpOpen = false;
   /** The jump box's search: matches are in row order, and `skipped` counts the matching objects hidden. */
   search: { text: string; error: string | null; matches: Match[]; rows: Set<number>; skipped: number } | null = null;
@@ -254,6 +251,12 @@ export class Controller {
     for (const l of this.listeners) l();
   }
 
+  /** Keeps the view within the trace, then redraws. */
+  settle(): void {
+    this.clamp();
+    this.changed();
+  }
+
   clamp(): void {
     const { firstCycle, lastCycle } = this.source.info;
     const visible = this.visibleCycles;
@@ -267,8 +270,7 @@ export class Controller {
     const cycle = this.x0 + px / this.cellW;
     ({ drawn: this.cellW, exact: this.cellLevel } = zoomSize(this.cellW, this.cellLevel, factor, key, 0.05, 64, WHOLE_CELLS));
     this.x0 = cycle - px / this.cellW;
-    this.clamp();
-    this.changed();
+    this.settle();
   }
 
   /** Zooms rows, keeping the row being looked at in place; `key` for a key press. */
@@ -290,20 +292,17 @@ export class Controller {
     }
     this.rowH = next;
     this.y0 = row * this.rowH - (y - RULER);
-    this.clamp();
-    this.changed();
+    this.settle();
   }
 
   panTime(cycles: number): void {
     this.x0 += cycles;
-    this.clamp();
-    this.changed();
+    this.settle();
   }
 
   scrollRows(px: number): void {
     this.y0 += px;
-    this.clamp();
-    this.changed();
+    this.settle();
   }
 
   select(i: number | null, reveal = false): void {
@@ -353,16 +352,11 @@ export class Controller {
     if (next !== p) this.select(this.rowAtPlace(next), true);
   }
 
-  /** A row's depth among the rows shown, as its type name's indent shows it. */
-  private depthOf(r: RowView): number {
-    return r.ancestorTypes.filter((t) => !this.hiddenTypes.has(t)).length;
-  }
-
   /** vim's } and {: a paragraph is a row and the rows under it; a row with none under it is in its parent's. */
   async moveParagraph(step: 1 | -1, times = 1): Promise<void> {
     if (this.selected === null || this.placeOf(this.selected) < 0) return this.moveSelection(step);
     const start = this.selected;
-    const depthAt = async (q: number) => this.depthOf(await this.rowAsync(this.rowAtPlace(q)));
+    const depthAt = async (q: number) => depth((await this.rowAsync(this.rowAtPlace(q))).ancestorTypes, this.hiddenTypes);
     let p = this.placeOf(start);
     for (let moved = 0; moved < times; moved++) {
       const depth = await depthAt(p);
@@ -428,10 +422,8 @@ export class Controller {
   scrollSelectedTo(where: 'middle' | 'top' | 'bottom'): void {
     if (this.selected === null || this.placeOf(this.selected) < 0) return;
     const y = this.placeOf(this.selected) * this.rowH;
-    const room = this.plotH;
-    this.y0 = where === 'top' ? y : where === 'bottom' ? y + this.rowH - room : y + this.rowH / 2 - room / 2;
-    this.clamp();
-    this.changed();
+    this.y0 = where === 'top' ? y : where === 'bottom' ? y + this.rowH - this.plotH : y + this.rowH / 2 - this.plotH / 2;
+    this.settle();
   }
 
   /** ] and [: the next or previous event; with no cycle selected, from before the first or after the last. */
@@ -474,11 +466,14 @@ export class Controller {
       else this.say(`${objectName(type, row.id)} was aborted (${row.endedBy}), and aborted objects are hidden; press o to show them.`);
       return;
     }
-    const first = row.events.length ? row.events[0].cycle : row.start;
-    if (rows) this.y0 = this.placeOf(row.index) * this.rowH - this.plotH / 3;
-    this.x0 = first - this.visibleCycles / 3;
-    this.clamp();
-    this.changed();
+    this.lookAt(rows ? this.placeOf(row.index) : null, row.events[0]?.cycle ?? row.start);
+  }
+
+  /** Puts a row's place a third of the way down, unless null, and a cycle a third of the way in. */
+  private lookAt(place: number | null, cycle: number): void {
+    if (place !== null) this.y0 = place * this.rowH - this.plotH / 3;
+    this.x0 = cycle - this.visibleCycles / 3;
+    this.settle();
   }
 
   /** 0 and $: selects the first or last event's cycle, a third in from that side; rows move only to reveal it. */
@@ -487,38 +482,33 @@ export class Controller {
     const i = this.selected;
     const row = await this.rowAsync(i);
     if (this.selected !== i) return;
-    const events = row.events;
     if (edge === 'start') {
-      this.column = events.length ? events[0].cycle : row.start;
+      this.column = row.events[0]?.cycle ?? row.start;
       this.x0 = this.column - this.visibleCycles / 3;
     } else {
-      this.column = events.length ? events[events.length - 1].cycle : (row.end ?? this.source.info.lastCycle + 1) - 1;
+      this.column = row.events.at(-1)?.cycle ?? (row.end ?? this.source.info.lastCycle + 1) - 1;
       this.x0 = this.column - (this.visibleCycles * 2) / 3;
     }
     this.reveal(i);
-    this.clamp();
-    this.changed();
+    this.settle();
   }
 
   /** Centers time on a cycle picked on the timeline bar, with the first object alive in view near the top. */
   async moveToCycle(cycle: number): Promise<void> {
     this.x0 = cycle - this.visibleCycles / 2;
-    this.clamp();
-    this.changed();
+    this.settle();
     const move = ++this.moves;
     const i = await this.source.rowAt(Math.floor(this.x0));
     if (move !== this.moves || this.shownCount === 0) return;
     this.y0 = (this.placeAtOrAfter(i) - 1) * this.rowH;
-    this.clamp();
-    this.changed();
+    this.settle();
   }
 
   async jumpToCycle(cycle: number): Promise<void> {
     const i = await this.source.rowAt(cycle);
     this.y0 = this.placeAtOrAfter(i) * this.rowH - this.plotH / 4;
     this.x0 = cycle - this.visibleCycles / 3;
-    this.clamp();
-    this.changed();
+    this.settle();
   }
 
   /** Selects and focuses an object; says why when there is none, and returns whether there was. */
@@ -562,12 +552,6 @@ export class Controller {
     return this.source.info.rowCount - this.shownCount;
   }
 
-  toggleView(): void {
-    this.viewOpen = !this.viewOpen;
-    if (this.viewOpen) this.cursorsOpen = false;
-    this.changed();
-  }
-
   /** Changes what is hidden, keeping the row being looked at in place: the selection if on screen, else the top row. */
   private async refilter(change: () => void): Promise<void> {
     const sel = this.selected;
@@ -590,8 +574,7 @@ export class Controller {
       if (this.placeOf(anchor) < 0) anchor = this.rowAtPlace(this.placeAtOrAfter(anchor));
       this.y0 = this.placeOf(anchor) * this.rowH - offset;
     }
-    this.clamp();
-    this.changed();
+    this.settle();
     // A search leaves out hidden objects, so its matches change with them.
     if (this.search && !this.search.error) await this.setSearch(this.search.text);
   }
@@ -654,10 +637,7 @@ export class Controller {
     const m = s.matches[k];
     this.select(m.row);
     this.column = m.cycle;
-    this.y0 = this.placeOf(m.row) * this.rowH - this.plotH / 3;
-    this.x0 = m.cycle - this.visibleCycles / 3;
-    this.clamp();
-    this.changed();
+    this.lookAt(this.placeOf(m.row), m.cycle);
     return true;
   }
 
@@ -722,10 +702,8 @@ export class Controller {
     this.selectColumn(edge);
   }
 
-  /** The view panel closes as this one opens, as both hang from the header. */
-  toggleCursors(): void {
-    this.cursorsOpen = !this.cursorsOpen;
-    if (this.cursorsOpen) this.viewOpen = false;
+  togglePanel(panel: 'view' | 'cursors'): void {
+    this.panel = this.panel === panel ? null : panel;
     this.changed();
   }
 
@@ -782,8 +760,7 @@ export class Controller {
     this.gutterW = Math.round(Math.min(fullW, this.width * 0.4));
     this.x0 = (first?.start ?? this.source.info.firstCycle) - 3;
     this.y0 = 0;
-    this.clamp();
-    this.changed();
+    this.settle();
   }
 }
 

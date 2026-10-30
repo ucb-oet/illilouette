@@ -5,6 +5,9 @@ import { Controller, CURSOR_GROUPS, RULER, useController } from './controller';
 import { drawWaterfall } from './render';
 import { onThemeChange, readTheme, type Theme } from './theme';
 
+/** The narrowest the timeline gets beside the label column. */
+const MIN_PLOT = 160;
+
 export function Waterfall({ c }: { c: Controller }) {
   const wrap = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -32,7 +35,7 @@ export function Waterfall({ c }: { c: Controller }) {
       c.setSize(b.width, b.height);
       el.width = Math.round(c.width * dpr);
       el.height = Math.round(c.height * dpr);
-      c.gutterW = Math.min(c.gutterW, Math.max(0, c.width - 160));
+      c.gutterW = Math.min(c.gutterW, Math.max(0, c.width - MIN_PLOT));
       c.clamp();
       draw();
     };
@@ -65,8 +68,7 @@ export function Waterfall({ c }: { c: Controller }) {
         if (drag.moved) {
           c.x0 = drag.x0 - dx / c.cellW;
           c.y0 = drag.y0 - dy;
-          c.clamp();
-          c.changed();
+          c.settle();
           return;
         }
       }
@@ -119,12 +121,14 @@ export function Waterfall({ c }: { c: Controller }) {
       else if (Math.abs(ev.deltaX) > Math.abs(ev.deltaY)) c.panTime(ev.deltaX * scale / c.cellW);
       else c.scrollRows(ev.deltaY * scale);
     };
-    el.addEventListener('pointerdown', onDown);
-    el.addEventListener('pointermove', onMove);
-    el.addEventListener('pointerup', onUp);
-    el.addEventListener('dblclick', onDouble);
-    el.addEventListener('pointerleave', onLeave);
-    el.addEventListener('wheel', onWheel, { passive: false });
+    const listening = new AbortController();
+    const signal = listening.signal;
+    el.addEventListener('pointerdown', onDown, { signal });
+    el.addEventListener('pointermove', onMove, { signal });
+    el.addEventListener('pointerup', onUp, { signal });
+    el.addEventListener('dblclick', onDouble, { signal });
+    el.addEventListener('pointerleave', onLeave, { signal });
+    el.addEventListener('wheel', onWheel, { passive: false, signal });
 
     const sp = splitter.current!;
     let splitDrag: { x: number; w: number } | null = null;
@@ -135,30 +139,21 @@ export function Waterfall({ c }: { c: Controller }) {
     };
     const onSplitMove = (ev: PointerEvent) => {
       if (!splitDrag) return;
-      c.gutterW = Math.min(Math.max(0, splitDrag.w + ev.clientX - splitDrag.x), c.width - 160);
-      c.clamp();
-      c.changed();
+      c.gutterW = Math.min(Math.max(0, splitDrag.w + ev.clientX - splitDrag.x), c.width - MIN_PLOT);
+      c.settle();
     };
     const onSplitUp = () => {
       splitDrag = null;
       sp.classList.remove('dragging');
     };
-    sp.addEventListener('pointerdown', onSplitDown);
-    sp.addEventListener('pointermove', onSplitMove);
-    sp.addEventListener('pointerup', onSplitUp);
+    sp.addEventListener('pointerdown', onSplitDown, { signal });
+    sp.addEventListener('pointermove', onSplitMove, { signal });
+    sp.addEventListener('pointerup', onSplitUp, { signal });
 
     return () => {
       observer.disconnect();
       stopTheme();
-      el.removeEventListener('pointerdown', onDown);
-      el.removeEventListener('pointermove', onMove);
-      el.removeEventListener('pointerup', onUp);
-      el.removeEventListener('dblclick', onDouble);
-      el.removeEventListener('pointerleave', onLeave);
-      el.removeEventListener('wheel', onWheel);
-      sp.removeEventListener('pointerdown', onSplitDown);
-      sp.removeEventListener('pointermove', onSplitMove);
-      sp.removeEventListener('pointerup', onSplitUp);
+      listening.abort();
       if (frame) cancelAnimationFrame(frame);
     };
   }, [c]);

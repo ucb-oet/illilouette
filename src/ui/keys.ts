@@ -21,9 +21,8 @@ const SECOND: Record<string, RegExp> = {
 /** Reads one key after those pending: returns what is pending next, and the command it completes, if any. */
 export function readKey(pending: string, key: string): { pending: string; command: Command | null } {
   if (MODIFIERS.has(key)) return { pending, command: null };
-  const first = pending.slice(-1);
-  if (Object.hasOwn(SECOND, first)) {
-    return { pending: '', command: SECOND[first].test(key) ? { key: first + key, count: 1 } : null };
+  if (Object.hasOwn(SECOND, pending)) {
+    return { pending: '', command: SECOND[pending].test(key) ? { key: pending + key, count: 1 } : null };
   }
   if (key === 'Escape') return { pending: '', command: pending ? null : { key, count: 1 } };
   // A count: digits from 1, and 0 after one; 0 alone is a command of its own, as in vim.

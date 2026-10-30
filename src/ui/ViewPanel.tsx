@@ -1,6 +1,4 @@
 // The view panel (o).
-import type { RefObject } from 'preact';
-import { useEffect, useRef } from 'preact/hooks';
 import { fmt } from '../model/present';
 import { LINK_KINDS, type LinkKind } from '../model/source';
 import { Controller, useController } from './controller';
@@ -11,25 +9,14 @@ const LINK_NAMES: Record<LinkKind, string> = {
   other: 'Parents and others',
 };
 
-export function ViewPanel({ c, anchor }: { c: Controller; anchor: RefObject<HTMLElement> }) {
+export function ViewPanel({ c }: { c: Controller }) {
   useController(c);
-  const panel = useRef<HTMLDivElement>(null);
-  // A click outside the panel and its button closes it.
-  useEffect(() => {
-    if (!c.viewOpen) return;
-    const onDown = (ev: PointerEvent) => {
-      const target = ev.target as Node;
-      if (!panel.current?.contains(target) && !anchor.current?.contains(target)) c.toggleView();
-    };
-    window.addEventListener('pointerdown', onDown, true);
-    return () => window.removeEventListener('pointerdown', onDown, true);
-  }, [c, c.viewOpen]);
-  if (!c.viewOpen) return null;
+  if (c.panel !== 'view') return null;
 
   const { types, summary, links } = c.source.info;
   const aborted = summary.reduce((n, t) => n + t.ends.reduce((m, e) => m + (e.normal ? 0 : e.rows), 0), 0);
   return (
-    <div class="view-panel" ref={panel} role="dialog" aria-label="View">
+    <div class="view-panel" role="dialog" aria-label="View">
       <section>
         <h3 class="cols">
           Types

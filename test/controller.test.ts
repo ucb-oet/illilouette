@@ -239,11 +239,11 @@ describe('Cursors', () => {
     c.panToCursor(211);
     expect(c.column).toBe(211);
     expect(c.x0 + c.visibleCycles / 2).toBeCloseTo(211);
-    c.toggleView();
-    c.toggleCursors();
-    expect([c.cursorsOpen, c.viewOpen]).toEqual([true, false]);
-    c.toggleView();
-    expect([c.cursorsOpen, c.viewOpen]).toEqual([false, true]);
+    c.togglePanel('view');
+    c.togglePanel('cursors');
+    expect(c.panel).toBe('cursors');
+    c.togglePanel('view');
+    expect(c.panel).toBe('view');
   });
 
   it('go at the selected object\'s start and after its end with I and A, and x takes the one A put', async () => {

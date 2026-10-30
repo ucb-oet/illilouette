@@ -20,6 +20,17 @@ export function Header({ c, onOpen }: { c: Controller; onOpen: (file: File) => P
   useEffect(() => {
     if (picked >= 0) list.current?.children[picked]?.scrollIntoView({ block: 'nearest' });
   }, [picked]);
+  // A click outside the open panel and its button closes it.
+  useEffect(() => {
+    const open = c.panel;
+    if (!open) return;
+    const anchor = open === 'view' ? viewButton : cursorButton;
+    const onDown = (ev: PointerEvent) => {
+      if (!anchor.current?.contains(ev.target as Node)) c.togglePanel(open);
+    };
+    window.addEventListener('pointerdown', onDown, true);
+    return () => window.removeEventListener('pointerdown', onDown, true);
+  }, [c, c.panel]);
 
   /** A cycle or an object to jump to, rather than a search. */
   const isJump = (q: string) => /^\d[\d,]*$/.test(q) || /^([A-Za-z_][\w.]*)?#\d+$/.test(q);
@@ -156,28 +167,28 @@ export function Header({ c, onOpen }: { c: Controller; onOpen: (file: File) => P
           <button
             type="button"
             class="plain icon"
-            aria-expanded={c.cursorsOpen}
+            aria-expanded={c.panel === 'cursors'}
             title="Cursors (c)"
             aria-label="Cursors"
-            onClick={() => c.toggleCursors()}
+            onClick={() => c.togglePanel('cursors')}
           >
             <Cursors />
           </button>
-          <CursorPanel c={c} anchor={cursorButton} />
+          <CursorPanel c={c} />
         </div>
         <div class="view-anchor" ref={viewButton}>
           <button
             type="button"
             class="plain icon"
-            aria-expanded={c.viewOpen}
+            aria-expanded={c.panel === 'view'}
             title={c.hiddenCount ? `View: ${fmt(c.hiddenCount)} objects hidden (o)` : 'View (o)'}
             aria-label="View"
-            onClick={() => c.toggleView()}
+            onClick={() => c.togglePanel('view')}
           >
             <Sliders />
             {c.hiddenCount > 0 && <i class="dot" />}
           </button>
-          <ViewPanel c={c} anchor={viewButton} />
+          <ViewPanel c={c} />
         </div>
         <ThemeButton />
         <label class="plain">
