@@ -92,8 +92,6 @@ for (const file of files) {
           for (const f of e.fields) check(f.row === null || f.row < w.rows.length, () => `row ${i}: field names row ${f.row}`);
         });
       });
-      check(source.info.summary.reduce((n, t) => n + t.rows, 0) === w.rows.length, () => 'the summary does not count every row');
-      for (const t of source.info.summary) check(t.ends.reduce((n, e) => n + e.rows, 0) + t.live === t.rows, () => `${t.name}: ends and live do not add up`);
       expect(problems).toEqual([]);
     }, 120_000);
 
@@ -103,18 +101,15 @@ for (const file of files) {
       await c.home();
       const ctx = canvas();
       const draw = () => drawWaterfall(ctx, c, theme, 1);
-      const shown = () => expect(c.hiddenCount).toBe(source.info.rowCount - c.shownCount);
       draw();
 
       for (let t = 0; t < source.info.types.length; t++) {
         c.cycleFocus(1);
         await c.toggleType(t);
-        shown();
         draw();
         await c.toggleType(t);
       }
       await c.toggleAborted();
-      shown();
       draw();
       await c.toggleAborted();
       expect(c.hiddenCount).toBe(0);

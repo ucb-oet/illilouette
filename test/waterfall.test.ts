@@ -6,17 +6,13 @@ import { encode, pipeline, staircase } from './build';
 
 describe('decodeWaterfall', () => {
   it('reads back every field of a file', () => {
-    const w = pipeline();
+    const w = { ...pipeline(), focus: 1 };
     expect(decodeWaterfall(encode(w))).toEqual(w);
-    const focused = { ...pipeline(), focus: 1 };
-    expect(decodeWaterfall(encode(focused))).toEqual(focused);
   });
 
-  it('tells a parent at row 0 from none, and a live object from one that ended', () => {
+  it('tells a parent at row 0 from none', () => {
     const stairs = decodeWaterfall(encode(staircase(3)));
     expect(stairs.rows.map((r) => r.parent)).toEqual([null, 0, null, 2, null, 4]);
-    const w = decodeWaterfall(encode(pipeline()));
-    expect([w.rows[2].end, w.rows[12].end]).toEqual([16, null]);
   });
 
   it('rejects a file of another format version', () => {

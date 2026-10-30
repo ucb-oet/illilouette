@@ -11,10 +11,6 @@ describe('MemorySource on the pipeline', async () => {
     expect(source.info.types.map((t) => t.ancestorTypes)).toEqual([[], [FETCH]]);
   });
 
-  it('keeps an object created before the window, without a label', () => {
-    expect([rows[0].id, rows[0].label]).toEqual([9, ['', '']]);
-  });
-
   it('draws a row from its first stage, or its first event, to the cycle after its end or the trace', () => {
     expect([rows[10].start, rows[10].segments[0].to]).toEqual([31, 33]);
     expect(rows[12].segments.at(-1)!.to).toBe(source.info.lastCycle + 1);

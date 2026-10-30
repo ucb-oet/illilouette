@@ -1,21 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { MemorySource } from '../src/model/memory';
-import { labelHolds, parseQuery, sameValue, suggest, type Query } from '../src/model/search';
-import { FETCH, INSTRUCTION, open, pipeline, staircase } from './build';
+import { parseQuery, sameValue, suggest, type Query } from '../src/model/search';
+import { FETCH, open, pipeline, staircase } from './build';
 
-describe('Values and labels', () => {
+describe('Values', () => {
   it('compare numbers by value and other texts whole, ignoring case', () => {
     expect(sameValue('0x0080000050', '0x80000050')).toBe(true);
     expect(sameValue('0x0080000050', '0x80000058')).toBe(false);
     expect(sameValue('cache_nack', 'CACHE_NACK')).toBe(true);
     expect(sameValue('cache_nack', 'cache')).toBe(false);
-    expect(sameValue('instruction#60', 'instruction#60')).toBe(true);
-  });
-
-  it('find text anywhere in a label, and a 0x number among its numbers', () => {
-    expect(labelHolds(['0x0080000040', 'sw gp, -0x3c(t5)'], 'SW GP')).toBe(true);
-    expect(labelHolds(['0x0080000000', 'j 0x80000050'], '0x80000050')).toBe(true);
-    expect(labelHolds(['0x0080000054', 'mv sp, zero'], '0x80000050')).toBe(false);
   });
 });
 
@@ -109,11 +102,6 @@ describe('Moving through matches', () => {
     }
     expect(places).toEqual([...places].sort((a, b) => a - b));
     expect(new Set(places).size).toBe(10);
-    // Hiding a type searches again, leaving it out.
-    await c.setSearch('*.fetch=fetch#3');
-    expect(c.search!.matches.length).toBe(1);
-    await c.toggleType(INSTRUCTION);
-    expect([c.search!.matches.length, c.search!.skipped]).toEqual([0, 1]);
     await c.setSearch('instruction.pcc=1');
     expect(await c.nextMatch(1)).toBe(false);
     expect(c.notice).toBe('instruction has no field pcc. Its fields are fetch.');

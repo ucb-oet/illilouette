@@ -35,7 +35,6 @@ export interface RowSpec {
 }
 
 export interface FileSpec {
-  title?: string;
   firstCycle: number;
   lastCycle: number;
   types: { name: string; stages: string[] }[];
@@ -72,7 +71,7 @@ export function build(spec: FileSpec): Waterfall {
   const types = spec.types.map((t) => ({ name: s(t.name), stages: t.stages.map(s) }));
   return {
     version: 1,
-    title: spec.title ?? 'test',
+    title: 'test',
     firstCycle: spec.firstCycle,
     lastCycle: spec.lastCycle,
     strings,
@@ -186,6 +185,10 @@ const ends: Effect = { kind: 'ends' };
 export const [S1, S2, MISS] = [0, 1, 2];
 export const [DECODE, EXECUTE, MEMORY, WRITEBACK] = [0, 1, 2, 3];
 export const [FETCH, INSTRUCTION] = [0, 1];
+const TYPES = [
+  { name: 'fetch', stages: ['S1', 'S2', 'Miss'] },
+  { name: 'instruction', stages: ['Decode', 'Execute', 'Memory', 'Writeback'] },
+];
 
 /**
  * A small pipeline, cycles 10 to 40, with each case the tests check, in the reader's row order, each packet followed
@@ -227,13 +230,9 @@ export function pipeline(): Waterfall {
     { name: 'pc', text: pc(0x100 + 4 * id) },
   ];
   return build({
-    title: 'pipeline',
     firstCycle: 10,
     lastCycle: 40,
-    types: [
-      { name: 'fetch', stages: ['S1', 'S2', 'Miss'] },
-      { name: 'instruction', stages: ['Decode', 'Execute', 'Memory', 'Writeback'] },
-    ],
+    types: TYPES,
     rows: [
       // 0
       {
@@ -356,13 +355,9 @@ export function staircase(n: number): Waterfall {
     });
   }
   return build({
-    title: `staircase of ${n}`,
     firstCycle: 0,
     lastCycle: 2 * n + 4,
-    types: [
-      { name: 'fetch', stages: ['S1', 'S2', 'Miss'] },
-      { name: 'instruction', stages: ['Decode', 'Execute', 'Memory', 'Writeback'] },
-    ],
+    types: TYPES,
     rows,
   });
 }

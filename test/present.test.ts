@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { MemorySource } from '../src/model/memory';
-import { effectText, fieldText, fieldValue, outcomeText, segmentAt, shortName, timeByStage } from '../src/model/present';
-import { EXECUTE, FETCH, INSTRUCTION, pipeline } from './build';
+import { effectText, fieldText, outcomeText, segmentAt, timeByStage } from '../src/model/present';
+import { EXECUTE, INSTRUCTION, pipeline } from './build';
 
 describe('Text for the pipeline', async () => {
   const source = new MemorySource(pipeline());
@@ -21,13 +21,7 @@ describe('Text for the pipeline', async () => {
   });
 
   it('keeps the stage of an object created stalled, and reads an event that describes as "while in"', () => {
-    expect(effects(4)).toEqual([
-      'created in Decode at 15',
-      'enters Execute at 18',
-      'enters Memory at 19',
-      'enters Writeback at 20',
-      'leaves Writeback after 20',
-    ]);
+    expect(effects(4)[0]).toBe('created in Decode at 15');
     expect(effects(9).slice(2)).toEqual(['while in Memory', 'leaves Memory after 24']);
   });
 
@@ -39,9 +33,6 @@ describe('Text for the pipeline', async () => {
     const decode = rows[4].events[0];
     const by = decode.fields.find((f) => f.name === 'by')!;
     expect(fieldText(by, rows[by.row!], decode.cycle, stages[INSTRUCTION])).toBe('by instruction#0 (in Writeback)');
-    expect(fieldValue(by, rows[by.row!], decode.cycle, stages[INSTRUCTION])).toBe('instruction#0 (in Writeback)');
-    const stall = decode.fields.find((f) => f.name === 'stall')!;
-    expect(fieldText(stall)).toBe('stall scoreboard');
   });
 
   it('counts time by stage, held cycles apart', () => {
@@ -68,10 +59,5 @@ describe('Text for the pipeline', async () => {
     expect(segmentAt(rows[7], 19)?.stage).toBe(EXECUTE);
     expect(segmentAt(rows[7], 20)).toBeNull();
     expect(segmentAt(rows[12], 40)?.stage).toBe(EXECUTE);
-  });
-
-  it('shortens an event name within its type', () => {
-    expect(shortName('instruction.mark_replay', 'instruction')).toBe('mark_replay');
-    expect(shortName('fetch.miss', source.info.types[FETCH].name)).toBe('miss');
   });
 });

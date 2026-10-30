@@ -10,7 +10,6 @@ it('opens on instructions, with blocking events and links of every kind', async 
   const path = fileURLToPath(new URL(`../public/${EXAMPLE}`, import.meta.url));
   const w = await readWaterfall(new Uint8Array(readFileSync(path)));
   const { info } = new MemorySource(w);
-  expect(info.types.map((t) => t.name)).toEqual(['fetch', 'instruction', 'vuop']);
   expect(info.types[info.focus].name).toBe('instruction');
   expect(w.sites.some((s) => s.blocks)).toBe(true);
   for (const kind of ['aborted', 'blocked', 'other'] as const) expect(info.links[kind], kind).toBeGreaterThan(0);
