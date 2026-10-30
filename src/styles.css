@@ -333,6 +333,8 @@ kbd {
 .drop .error { color: var(--red); }
 .drop label.plain { display: inline-block; }
 .drop .choices { display: flex; flex-wrap: wrap; gap: 8px; }
+/* While the example downloads, its button stays readable: it counts the download. */
+.drop button.plain:disabled { color: var(--text); cursor: progress; }
 .drop .note { font-size: 12px; color: var(--subtext0); }
 .drop .note code { font-size: inherit; }
 .drop input[type="file"] { position: absolute; width: 1px; height: 1px; opacity: 0; }

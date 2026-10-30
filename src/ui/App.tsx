@@ -31,28 +31,51 @@ export function App() {
   return source ? <Viewer key={source.info.title + source.info.rowCount} source={source} onOpen={open} /> : <Landing onOpen={open} />;
 }
 
-/** Fetches the example as a file. */
-async function fetchExample(): Promise<File> {
+/** Fetches the example as a file, telling how much of it has arrived as it comes: a fraction, or null when the
+ *  server does not say how large it is. */
+async function fetchExample(arrived: (fraction: number | null) => void): Promise<File> {
   const response = await fetch(EXAMPLE);
-  if (!response.ok) throw new Error(`The example could not be fetched: ${response.status} ${response.statusText}.`);
-  return new File([await response.blob()], EXAMPLE.split('/').pop()!);
+  if (!response.ok || !response.body) throw new Error(`The example could not be fetched: ${response.status} ${response.statusText}.`);
+  const size = Number(response.headers.get('content-length')) || 0;
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let received = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    received += value.length;
+    arrived(size ? Math.min(received / size, 1) : null);
+  }
+  return new File(chunks as BlobPart[], EXAMPLE.split('/').pop()!);
 }
 
 /** Opening the first file, or the example. Errors show here; the viewer's show in its status bar. */
 function Landing({ onOpen }: { onOpen: (f: File) => Promise<void> }) {
   const [over, setOver] = useState(false);
   const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
+  // What is being opened, a chosen file or the example, and how much of the example has arrived.
+  const [busy, setBusy] = useState<'file' | 'example' | null>(null);
+  const [arrived, setArrived] = useState<number | null>(null);
   const open = async (file: File | (() => Promise<File>)) => {
-    setBusy(true);
+    setBusy(file instanceof File ? 'file' : 'example');
+    setArrived(null);
     setError('');
     try {
       await onOpen(file instanceof File ? file : await file());
     } catch (e) {
       setError((e as Error).message);
-      setBusy(false);
+      setBusy(null);
     }
   };
+  const exampleLabel =
+    busy !== 'example'
+      ? 'Open the example'
+      : arrived === null
+        ? 'Downloading…'
+        : arrived < 1
+          ? `Downloading… ${Math.floor(arrived * 100)}%`
+          : 'Opening…';
   return (
     <main class="landing">
       <div
@@ -76,7 +99,7 @@ function Landing({ onOpen }: { onOpen: (f: File) => Promise<void> }) {
         </p>
         <div class="choices">
           <label class="plain">
-            {busy ? 'Opening…' : 'Choose a file'}
+            {busy === 'file' ? 'Opening…' : 'Choose a file'}
             <input
               type="file"
               accept=".pb,.waterfall,.gz"
@@ -89,8 +112,8 @@ function Landing({ onOpen }: { onOpen: (f: File) => Promise<void> }) {
               }}
             />
           </label>
-          <button type="button" class="plain" disabled={busy} onClick={() => void open(fetchExample)}>
-            Open the example
+          <button type="button" class="plain" disabled={busy !== null} onClick={() => void open(() => fetchExample(setArrived))}>
+            {exampleLabel}
           </button>
         </div>
         <p class="note">
