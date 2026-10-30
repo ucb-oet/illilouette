@@ -42,8 +42,8 @@ export function DetailPanel({ c }: { c: Controller }) {
   if (collapsed) {
     return (
       <aside class="panel collapsed">
-        <button type="button" class="plain" onClick={() => setCollapsed(false)} aria-label="Show the detail panel">
-          ‹
+        <button type="button" class="plain icon" onClick={() => setCollapsed(false)} title="Show the detail panel" aria-label="Show the detail panel">
+          <Chevron left />
         </button>
       </aside>
     );
@@ -52,8 +52,8 @@ export function DetailPanel({ c }: { c: Controller }) {
     <aside class="panel" aria-live="polite">
       <div class="panel-head">
         <p class="eyebrow">{selected ? 'Selected' : 'This file'}</p>
-        <button type="button" class="plain" onClick={() => setCollapsed(true)} aria-label="Hide the detail panel">
-          ›
+        <button type="button" class="fold" onClick={() => setCollapsed(true)} title="Hide the detail panel" aria-label="Hide the detail panel">
+          <Chevron />
         </button>
       </div>
       {selected ? <Selection c={c} s={selected} /> : <Summary c={c} />}
@@ -152,8 +152,11 @@ function Selection({ c, s }: { c: Controller; s: Selected }) {
             {timeByStage(row).map((t) => (
               <span key={t.stage}>
                 <i style={{ background: `var(--stage-${t.stage % 8})` }} />
-                {type.stages[t.stage]} {fmt(t.cycles)}
-                {t.held ? ` (${fmt(t.held)} held)` : ''}
+                {type.stages[t.stage]}
+                <span class="n">
+                  {fmt(t.cycles)}
+                  {t.held ? ` (${fmt(t.held)} held)` : ''}
+                </span>
               </span>
             ))}
           </div>
@@ -222,5 +225,14 @@ function Selection({ c, s }: { c: Controller; s: Selected }) {
         </ol>
       </section>
     </>
+  );
+}
+
+/** A chevron toward where the panel goes: right to hide it, left to show it. */
+function Chevron({ left }: { left?: boolean }) {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d={left ? 'M10 4 6 8l4 4' : 'M6 4l4 4-4 4'} />
+    </svg>
   );
 }

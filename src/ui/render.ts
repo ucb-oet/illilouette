@@ -258,8 +258,8 @@ function layoutTags(ctx: CanvasRenderingContext2D, c: Controller, lane: Cursor[]
   return tags;
 }
 
-/** The cursor strip along the bottom of the waterfall: a lane for each group with cursors, its color in the label
- *  column. A lane holds its group's tags, boxes outlined in its color with its fill and ink, and between neighbors a
+/** The cursor strip along the bottom of the waterfall: a lane for each group with cursors, its color as a dot in the
+ *  label column, as the cursor panel shows it. A lane holds its group's tags, boxes outlined in its color with its fill and ink, and between neighbors a
  *  line in its color with the distance as plain text in its ink, the line breaking around it. A cursor being named has
  *  its name box over its tag. */
 function drawCursorStrip(ctx: CanvasRenderingContext2D, c: Controller, th: Theme): void {
@@ -272,7 +272,8 @@ function drawCursorStrip(ctx: CanvasRenderingContext2D, c: Controller, th: Theme
   if (c.gutterW > 0) ctx.fillRect(c.gutterW - 1, top, 1, c.stripH);
   for (const g of c.cursorLanes) {
     ctx.fillStyle = th.cursors[g];
-    rr(ctx, EDGE, c.laneY(g) - 1.5, 16, 3, 1.5);
+    ctx.beginPath();
+    ctx.arc(EDGE + 6, c.laneY(g), 6, 0, 2 * Math.PI);
     ctx.fill();
   }
   ctx.beginPath();

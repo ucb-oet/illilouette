@@ -287,10 +287,13 @@ function showTip(c: Controller, tip: HTMLDivElement, rowIndex: number | null, cy
   }
   for (const e of r.events) {
     if (e.cycle !== cycle) continue;
-    const fields = e.fields
-      .map((f) => fieldText(f, f.row === null ? undefined : c.row(f.row), e.cycle, f.row === null ? undefined : c.source.info.types[c.row(f.row)?.type ?? 0]?.stages))
-      .join(' · ');
-    tip.append(div('event', `${shortName(e.name, type.name)}: ${effectText(r, e, type.stages)}${fields ? ' · ' + fields : ''}`));
+    const line = div('event', `${shortName(e.name, type.name)}: ${effectText(r, e, type.stages)}`);
+    // Each field's name and value wrap as one.
+    for (const f of e.fields) {
+      const other = f.row === null ? undefined : c.row(f.row);
+      line.append(' · ', div('pair', fieldText(f, other, e.cycle, other && c.source.info.types[other.type].stages)));
+    }
+    tip.append(line);
   }
   place(c, tip, x, y);
 }

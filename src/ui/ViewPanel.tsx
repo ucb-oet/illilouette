@@ -33,8 +33,11 @@ export function ViewPanel({ c, anchor }: { c: Controller; anchor: RefObject<HTML
   return (
     <div class="view-panel" ref={panel} role="dialog" aria-label="View">
       <section>
-        <h3>
-          Types <span>shown, and in focus</span> <kbd>t</kbd>
+        <h3 class="cols">
+          Types
+          <span class="col">
+            Focus <kbd>t</kbd>
+          </span>
         </h3>
         {types.map((t, i) => (
           <div class="opt" key={t.name}>
@@ -44,8 +47,14 @@ export function ViewPanel({ c, anchor }: { c: Controller; anchor: RefObject<HTML
               <kbd>z{i + 1}</kbd>
             </label>
             <label class="focus" title="The type drawn in full; t moves the focus">
-              <input type="radio" name="view-focus" checked={c.focusType === i} disabled={c.hiddenTypes.has(i)} onChange={() => c.setFocus(i)} />
-              focus
+              <input
+                type="radio"
+                name="view-focus"
+                aria-label={`Focus ${t.name}`}
+                checked={c.focusType === i}
+                disabled={c.hiddenTypes.has(i)}
+                onChange={() => c.setFocus(i)}
+              />
             </label>
           </div>
         ))}

@@ -164,58 +164,60 @@ export function Header({ c, onOpen }: { c: Controller; onOpen: (file: File) => P
           <kbd>r</kbd>Links
         </button>
       </div>
-      <div class="view-anchor" ref={cursorButton}>
+      <div class="actions">
+        <div class="view-anchor" ref={cursorButton}>
+          <button
+            type="button"
+            class="plain icon"
+            aria-expanded={c.cursorsOpen}
+            title="Cursors (c)"
+            aria-label="Cursors"
+            onClick={() => c.toggleCursors()}
+          >
+            <Cursors />
+          </button>
+          <CursorPanel c={c} anchor={cursorButton} />
+        </div>
+        <div class="view-anchor" ref={viewButton}>
+          <button
+            type="button"
+            class="plain icon"
+            aria-expanded={c.viewOpen}
+            title={c.hiddenCount ? `View: ${fmt(c.hiddenCount)} objects hidden (o)` : 'View (o)'}
+            aria-label="View"
+            onClick={() => c.toggleView()}
+          >
+            <Sliders />
+            {/* While anything is hidden, so that a filter is not forgotten. */}
+            {c.hiddenCount > 0 && <i class="dot" />}
+          </button>
+          <ViewPanel c={c} anchor={viewButton} />
+        </div>
         <button
           type="button"
           class="plain icon"
-          aria-expanded={c.cursorsOpen}
-          title="Cursors (c)"
-          aria-label="Cursors"
-          onClick={() => c.toggleCursors()}
+          onClick={() => choose(dark ? 'light' : 'dark')}
+          title={dark ? 'Switch to Latte, the light palette' : 'Switch to Mocha, the dark palette'}
+          aria-label={dark ? 'Switch to the light palette' : 'Switch to the dark palette'}
         >
-          <Cursors />
+          {dark ? <Sun /> : <Moon />}
         </button>
-        <CursorPanel c={c} anchor={cursorButton} />
+        <label class="plain">
+          Open…
+          <input
+            type="file"
+            accept=".pb,.waterfall,.gz"
+            hidden
+            onChange={(e) => {
+              const input = e.target as HTMLInputElement;
+              const f = input.files?.[0];
+              // Cleared, so that choosing the same file again, after fixing it, opens it again.
+              input.value = '';
+              if (f) onOpen(f).catch((err: Error) => c.say(err.message));
+            }}
+          />
+        </label>
       </div>
-      <div class="view-anchor" ref={viewButton}>
-        <button
-          type="button"
-          class="plain icon"
-          aria-expanded={c.viewOpen}
-          title={c.hiddenCount ? `View: ${fmt(c.hiddenCount)} objects hidden (o)` : 'View (o)'}
-          aria-label="View"
-          onClick={() => c.toggleView()}
-        >
-          <Sliders />
-          {/* While anything is hidden, so that a filter is not forgotten. */}
-          {c.hiddenCount > 0 && <i class="dot" />}
-        </button>
-        <ViewPanel c={c} anchor={viewButton} />
-      </div>
-      <button
-        type="button"
-        class="plain icon"
-        onClick={() => choose(dark ? 'light' : 'dark')}
-        title={dark ? 'Switch to Latte, the light palette' : 'Switch to Mocha, the dark palette'}
-        aria-label={dark ? 'Switch to the light palette' : 'Switch to the dark palette'}
-      >
-        {dark ? <Sun /> : <Moon />}
-      </button>
-      <label class="plain">
-        Open…
-        <input
-          type="file"
-          accept=".pb,.waterfall,.gz"
-          hidden
-          onChange={(e) => {
-            const input = e.target as HTMLInputElement;
-            const f = input.files?.[0];
-            // Cleared, so that choosing the same file again, after fixing it, opens it again.
-            input.value = '';
-            if (f) onOpen(f).catch((err: Error) => c.say(err.message));
-          }}
-        />
-      </label>
     </header>
   );
 }
