@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'preact/hooks';
-import { applyThemeChoice, isDark, onThemeChange, type ThemeChoice } from './theme';
+import { applyThemeChoice, onThemeChange, pageIsDark } from './theme';
 
 export function ThemeButton() {
   // Read from the page; rerenders when it or the system setting changes.
   const [, setTick] = useState(0);
   useEffect(() => onThemeChange(() => setTick((n) => n + 1)), []);
-  const dark = isDark((document.documentElement.dataset.theme as ThemeChoice | undefined) ?? 'system');
+  const dark = pageIsDark();
   return (
     <button
       type="button"

@@ -40,7 +40,7 @@ export function TimelineBar({ c }: { c: Controller }) {
       const mw = Math.max(MIN_MARKER, Math.min(x2, PAD + w + 2) - mx);
       ctx.fillStyle = rgba(th.accent, th.dark ? 0.3 : 0.25);
       ctx.beginPath();
-      ctx.roundRect?.(mx, 4, mw, H - 8, 4);
+      ctx.roundRect(mx, 4, mw, H - 8, 4);
       ctx.fill();
       ctx.strokeStyle = th.accent;
       ctx.lineWidth = 1.5;

@@ -4,6 +4,7 @@ import { effectText, endText, fieldValue, fmt, objectName, outcomeText, shortNam
 import type { Role } from '../file/waterfall';
 import type { Referrer, RowView } from '../model/source';
 import { Controller, useController } from './controller';
+import { stageColor } from './theme';
 
 interface Selected {
   row: RowView;
@@ -70,7 +71,7 @@ function Summary({ c }: { c: Controller }) {
           <div class="stages legend">
             {c.source.info.types[ti].stages.map((s, k) => (
               <span key={s}>
-                <i style={{ background: `var(--stage-${k % 8})` }} />
+                <i style={{ background: stageColor(k) }} />
                 {s}
               </span>
             ))}
@@ -149,7 +150,7 @@ function Selection({ c, s }: { c: Controller; s: Selected }) {
           <div class="stages">
             {timeByStage(row).map((t) => (
               <span key={t.stage}>
-                <i style={{ background: `var(--stage-${t.stage % 8})` }} />
+                <i style={{ background: stageColor(t.stage) }} />
                 {type.stages[t.stage]}
                 <span class="n">
                   {fmt(t.cycles)}

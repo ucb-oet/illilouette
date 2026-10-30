@@ -36,11 +36,21 @@ export interface Theme {
 
 const STAGE_COLORS = 8;
 
+/** A stage's color, as CSS. */
+export function stageColor(stage: number): string {
+  return `var(--stage-${stage % STAGE_COLORS})`;
+}
+
+/** Whether the page shows Mocha: by the choice made, or else the system's setting. */
+export function pageIsDark(): boolean {
+  const choice = document.documentElement.dataset.theme;
+  return choice === 'dark' || (choice !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
+}
+
 export function readTheme(ctx: CanvasRenderingContext2D): Theme {
   const style = getComputedStyle(document.documentElement);
   const get = (name: string) => style.getPropertyValue(`--${name}`).trim();
-  const root = document.documentElement.dataset.theme;
-  const dark = root === 'dark' || (root !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
+  const dark = pageIsDark();
   const stages = Array.from({ length: STAGE_COLORS }, (_, i) => get(`stage-${i}`));
   const wash = parseFloat(get('wash'));
   return {
@@ -109,10 +119,6 @@ export function onThemeChange(callback: () => void): () => void {
 }
 
 export type ThemeChoice = 'system' | 'light' | 'dark';
-
-export function isDark(choice: ThemeChoice): boolean {
-  return choice === 'dark' || (choice === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
-}
 
 const KEY = 'illilouette.theme';
 

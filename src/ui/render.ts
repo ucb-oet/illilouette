@@ -1,7 +1,7 @@
 // Draws the waterfall canvas.
 import { fmt } from '../model/present';
-import { linkKind, type LinkKind, type RowView } from '../model/source';
-import { Controller, RULER, ZOOM_STEP, type Cursor, type Link } from './controller';
+import { linkKind, type RowView } from '../model/source';
+import { Controller, RULER, WHOLE_CELLS, ZOOM_STEP, type Cursor, type Link } from './controller';
 import { EDGE, GAP, labelColumns, labelFontSize } from './labels';
 import { MONO, rgba, type Theme } from './theme';
 
@@ -15,7 +15,7 @@ const LABEL_ROWS = 12;
 
 export function detailOf(c: Controller): Detail {
   if (c.cellW >= LETTER_CELLS && c.rowH >= LETTER_ROWS) return 'letters';
-  if (c.cellW >= 8) return 'cells';
+  if (c.cellW >= WHOLE_CELLS) return 'cells';
   if (c.cellW >= 2.5) return 'runs';
   return 'solid';
 }
@@ -38,8 +38,7 @@ function rr(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: num
   if (w <= 0 || h <= 0) return;
   r = Math.min(r, w / 2, h / 2);
   g.beginPath();
-  if (g.roundRect) g.roundRect(x, y, w, h, r);
-  else g.rect(x, y, w, h);
+  g.roundRect(x, y, w, h, r);
 }
 
 function niceStep(minCycles: number): number {
@@ -86,6 +85,25 @@ export function drawWaterfall(ctx: CanvasRenderingContext2D, c: Controller, th: 
     if (c.hover?.row === r.index) return rgba(th.overlay0, 0.1);
     return null;
   };
+  const tintRows = (x: number, w: number, gutter: boolean) => {
+    for (const r of rows) {
+      const band = bandOf(r, gutter);
+      if (!band) continue;
+      ctx.fillStyle = band;
+      ctx.fillRect(x, c.rowY(r.index), w, rowH);
+    }
+  };
+  /** The hovered and the selected cycle's columns, from y down h. */
+  const columnBands = (y: number, h: number, hover: string, column: string) => {
+    if (c.hover?.cycle != null) {
+      ctx.fillStyle = hover;
+      ctx.fillRect(c.xOf(c.hover.cycle), y, Math.max(1, cw), h);
+    }
+    if (c.column !== null) {
+      ctx.fillStyle = column;
+      ctx.fillRect(c.xOf(c.column), y, Math.max(1, cw), h);
+    }
+  };
 
   // ---- timeline area
   ctx.save();
@@ -94,19 +112,13 @@ export function drawWaterfall(ctx: CanvasRenderingContext2D, c: Controller, th: 
   ctx.clip();
   ctx.fillStyle = th.surface0;
   for (let k = Math.ceil(cStart / step) * step; k <= cEnd; k += step) ctx.fillRect(Math.round(c.xOf(k)), RULER, 1, H - RULER);
-  if (c.hover?.cycle != null) {
-    ctx.fillStyle = rgba(th.overlay0, th.dark ? 0.12 : 0.14);
-    ctx.fillRect(c.xOf(c.hover.cycle), RULER, Math.max(1, cw), H - RULER);
-  }
-  if (c.column !== null) {
-    ctx.fillStyle = rgba(th.accent, th.dark ? 0.14 : 0.12);
-    ctx.fillRect(c.xOf(c.column), RULER, Math.max(1, cw), H - RULER);
-  }
+  columnBands(RULER, H - RULER, rgba(th.overlay0, th.dark ? 0.12 : 0.14), rgba(th.accent, th.dark ? 0.14 : 0.12));
 
   // Others' links fade while a row is selected, so that its own stand out.
-  const mine = linksShown(c) ? c.shownRelated : [];
+  const showLinks = linksShown(c);
+  const mine = showLinks ? c.shownRelated : [];
   const others: Link[] = [];
-  if (linksShown(c) && c.allLinks) {
+  if (showLinks && c.allLinks) {
     for (const r of rows) {
       for (const e of r.events) {
         for (const f of e.fields) {
@@ -117,13 +129,7 @@ export function drawWaterfall(ctx: CanvasRenderingContext2D, c: Controller, th: 
       }
     }
   }
-  for (const r of rows) {
-    const band = bandOf(r, false);
-    if (band) {
-      ctx.fillStyle = band;
-      ctx.fillRect(gx, c.rowY(r.index), W - gx, rowH);
-    }
-  }
+  tintRows(gx, W - gx, false);
   for (const r of rows) {
     const y = c.rowY(r.index);
     const end = r.end ?? info.lastCycle + 1;
@@ -141,7 +147,8 @@ export function drawWaterfall(ctx: CanvasRenderingContext2D, c: Controller, th: 
       const to = a.kind === 'blocked' ? markAt(c, a.cycle, c.rowY(a.to)) : null;
       const x2 = to ? to.x + to.r + 2.5 : edge;
       const y2 = to ? to.y : c.rowY(a.to) + rowH / 2;
-      drawLink(ctx, th, linkColor(th, a.kind), edge, c.rowY(a.from) + rowH / 2, x2, y2);
+      const color = a.kind === 'aborted' ? th.killed : a.kind === 'blocked' ? th.blocked : th.overlay1;
+      drawLink(ctx, th, color, edge, c.rowY(a.from) + rowH / 2, x2, y2);
     }
     ctx.globalAlpha = 1;
   };
@@ -150,11 +157,6 @@ export function drawWaterfall(ctx: CanvasRenderingContext2D, c: Controller, th: 
   if (c.selected !== null && c.column !== null && c.placeOf(c.selected) >= 0) {
     const w = Math.max(4, cw);
     drawBrackets(ctx, th, c.xOf(c.column) + (cw - w) / 2, c.rowY(c.selected), w, rowH);
-  }
-  // Cursors mark clock edges, in the gaps between cells.
-  for (const k of c.cursors) {
-    ctx.fillStyle = th.cursors[k.group];
-    ctx.fillRect(c.xOf(k.edge) - 0.75, RULER, 1.5, c.plotBottom - RULER);
   }
   ctx.restore();
 
@@ -166,13 +168,7 @@ export function drawWaterfall(ctx: CanvasRenderingContext2D, c: Controller, th: 
     ctx.beginPath();
     ctx.rect(0, RULER, gx - 1, H - RULER);
     ctx.clip();
-    for (const r of rows) {
-      const band = bandOf(r, true);
-      if (band) {
-        ctx.fillStyle = band;
-        ctx.fillRect(0, c.rowY(r.index), gx, rowH);
-      }
-    }
+    tintRows(0, gx, true);
     // Search matches get a mark at the left edge, which stays when rows are too small for text.
     if (c.search) {
       ctx.fillStyle = th.accent;
@@ -191,16 +187,9 @@ export function drawWaterfall(ctx: CanvasRenderingContext2D, c: Controller, th: 
   ctx.fillRect(0, RULER - 1, W, 1);
   ctx.save();
   ctx.beginPath();
-  ctx.rect(gx, 0, W - gx, RULER);
+  ctx.rect(gx, 0, W - gx, H);
   ctx.clip();
-  if (c.hover?.cycle != null) {
-    ctx.fillStyle = rgba(th.overlay0, 0.2);
-    ctx.fillRect(c.xOf(c.hover.cycle), 0, Math.max(1, cw), RULER - 1);
-  }
-  if (c.column !== null) {
-    ctx.fillStyle = rgba(th.accent, th.dark ? 0.3 : 0.25);
-    ctx.fillRect(c.xOf(c.column), 0, Math.max(1, cw), RULER - 1);
-  }
+  columnBands(0, RULER - 1, rgba(th.overlay0, 0.2), rgba(th.accent, th.dark ? 0.3 : 0.25));
   ctx.font = MONO(11);
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'left';
@@ -212,9 +201,10 @@ export function drawWaterfall(ctx: CanvasRenderingContext2D, c: Controller, th: 
     ctx.fillStyle = th.subtext0;
     ctx.fillText(fmt(k), x + 4, RULER / 2);
   }
+  // Cursors mark clock edges, in the gaps between cells, across the ruler and the rows.
   for (const k of c.cursors) {
     ctx.fillStyle = th.cursors[k.group];
-    ctx.fillRect(c.xOf(k.edge) - 0.75, 0, 1.5, RULER);
+    ctx.fillRect(c.xOf(k.edge) - 0.75, 0, 1.5, c.plotBottom);
   }
   ctx.restore();
   if (c.cursors.length) drawCursorStrip(ctx, c, th);
@@ -228,8 +218,7 @@ interface TagBox {
 }
 
 /** Each tag goes right of its line, as tick labels do, or left if that would hit the next cursor; else none. */
-function layoutTags(ctx: CanvasRenderingContext2D, c: Controller, lane: Cursor[]): (TagBox | null)[] {
-  const xs = lane.map((k) => c.xOf(k.edge));
+function layoutTags(ctx: CanvasRenderingContext2D, c: Controller, lane: Cursor[], xs: number[]): (TagBox | null)[] {
   const tags: (TagBox | null)[] = [];
   // Where the last tag or line ends, which the next tag must clear.
   let floor = -Infinity;
@@ -277,7 +266,7 @@ function drawCursorStrip(ctx: CanvasRenderingContext2D, c: Controller, th: Theme
     const lane = c.cursors.filter((k) => k.group === g);
     const xs = lane.map((k) => c.xOf(k.edge));
     ctx.font = MONO(11, 600);
-    const tags = layoutTags(ctx, c, lane);
+    const tags = layoutTags(ctx, c, lane, xs);
     for (let i = 0; i + 1 < xs.length; i++) {
       ctx.fillStyle = color;
       ctx.fillRect(xs[i], y - 0.75, xs[i + 1] - xs[i], 1.5);
@@ -324,13 +313,6 @@ function drawDot(ctx: CanvasRenderingContext2D, color: string, ground: string, x
   ctx.fill();
 }
 
-/** A cap where an object left without its type's normal end. */
-function drawCap(ctx: CanvasRenderingContext2D, th: Theme, x: number, y: number, h: number): void {
-  rr(ctx, x - 1.5, y, 3, h, 1.5);
-  ctx.fillStyle = th.killed;
-  ctx.fill();
-}
-
 /** Where an event's dot goes, near the top left of its cell in a row at y, and a blocking event's dot's radius. */
 function markAt(c: Controller, cycle: number, y: number): { x: number; y: number; r: number } {
   const s = Math.min(1, Math.max(0.5, Math.min(c.cellW, c.rowH) / 18));
@@ -344,7 +326,11 @@ function drawMarks(ctx: CanvasRenderingContext2D, c: Controller, th: Theme, r: R
     if (e.blocks) drawDot(ctx, th.blocked, th.base, at.x, at.y, at.r);
     else if (e.effect.kind === 'observes') drawDot(ctx, th.event, th.base, at.x, at.y, at.r * 0.85);
   }
-  if (aborted(r)) drawCap(ctx, th, c.xOf(r.end!) - gap / 2, y + pad, c.rowH - 2 * pad);
+  if (aborted(r)) {
+    rr(ctx, c.xOf(r.end!) - gap / 2 - 1.5, y + pad, 3, c.rowH - 2 * pad, 1.5);
+    ctx.fillStyle = th.killed;
+    ctx.fill();
+  }
 }
 
 /** Dashes of a held stretch of bar, and the gaps between them, in pixels. */
@@ -506,10 +492,6 @@ function drawBrackets(ctx: CanvasRenderingContext2D, th: Theme, x: number, y: nu
   ctx.lineWidth = 2;
   ctx.lineCap = 'round';
   ctx.stroke();
-}
-
-function linkColor(th: Theme, kind: LinkKind): string {
-  return kind === 'aborted' ? th.killed : kind === 'blocked' ? th.blocked : th.overlay1;
 }
 
 /** Bowed right, edged in the ground color so that it reads over any cell; no arrowhead. */

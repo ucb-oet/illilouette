@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'preact/hooks';
 import { effectText, endText, fieldText, fmt, objectName, outcomeText, segmentAt, shortName } from '../model/present';
 import { Controller, CURSOR_GROUPS, RULER, useController } from './controller';
 import { drawWaterfall } from './render';
-import { onThemeChange, readTheme, type Theme } from './theme';
+import { onThemeChange, readTheme, stageColor, type Theme } from './theme';
 
 /** The narrowest the timeline gets beside the label column. */
 const MIN_PLOT = 160;
@@ -268,7 +268,7 @@ function showTip(c: Controller, tip: HTMLDivElement, rowIndex: number | null, cy
   if (s) {
     const key = document.createElement('span');
     key.className = 'key';
-    key.style.background = getComputedStyle(document.documentElement).getPropertyValue(`--stage-${s.stage % 8}`);
+    key.style.background = stageColor(s.stage);
     main.append(key, document.createTextNode(type.stages[s.stage] + (cycle < s.from + s.held ? ' · held' : '')));
   } else {
     main.textContent = r.end !== null && cycle >= r.end ? endText(r.endedBy!, r.normalEnd) : 'In no stage';
