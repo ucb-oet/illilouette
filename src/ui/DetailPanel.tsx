@@ -110,7 +110,6 @@ const LINKING: Partial<Record<Role, string>> = { parent: 'parent of', abortedBy:
 function Selection({ c, s }: { c: Controller; s: Selected }) {
   const { row, others, referrers } = s;
   const type = c.source.info.types[row.type];
-  const stagesOf = (r: RowView) => c.source.info.types[r.type].stages;
   const label = row.label.filter(Boolean);
   const go = (i: number) => {
     c.select(i);
@@ -134,7 +133,7 @@ function Selection({ c, s }: { c: Controller; s: Selected }) {
   return (
     <>
       <div>
-        <h2>{label.length ? label[label.length - 1] : objectName(type.name, row.id)}</h2>
+        <h2>{label.at(-1) ?? objectName(type.name, row.id)}</h2>
         <p class="sub">
           {objectName(type.name, row.id)}
           {label.length > 1 ? ` · ${label.slice(0, -1).join(' · ')}` : ''}
@@ -181,7 +180,7 @@ function Selection({ c, s }: { c: Controller; s: Selected }) {
             {links.map((l) => (
               <button type="button" key={`${l.label}${l.row.index}`} onClick={() => go(l.row.index)}>
                 {l.label} {objectName(c.source.info.types[l.row.type].name, l.row.id)}
-                <span>{l.row.label.filter(Boolean).slice(-1)[0] ?? ''}</span>
+                <span>{l.row.label.filter(Boolean).at(-1) ?? ''}</span>
               </button>
             ))}
           </div>
@@ -193,7 +192,7 @@ function Selection({ c, s }: { c: Controller; s: Selected }) {
           {row.events.map((e, k) => {
             const fields = e.fields.map((f) => {
               const other = f.row === null ? undefined : others.get(f.row);
-              return { name: f.name, value: fieldValue(f, other, e.cycle, other ? stagesOf(other) : undefined) };
+              return { name: f.name, value: fieldValue(f, other, e.cycle, other && c.source.info.types[other.type].stages) };
             });
             return (
               <li key={k}>

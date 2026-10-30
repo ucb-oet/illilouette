@@ -6,6 +6,10 @@ import { CursorPanel } from './CursorPanel';
 import { ThemeButton } from './ThemeButton';
 import { ViewPanel } from './ViewPanel';
 
+/** A cycle, such as 41,440, or an object, such as #3454 or instruction#3454, to jump to rather than search for. */
+const CYCLE = /^\d[\d,]*$/;
+const OBJECT = /^([A-Za-z_][\w.]*)?#(\d+)$/;
+
 export function Header({ c, onOpen }: { c: Controller; onOpen: (file: File) => Promise<void> }) {
   useController(c);
   const info = c.source.info;
@@ -32,8 +36,7 @@ export function Header({ c, onOpen }: { c: Controller; onOpen: (file: File) => P
     return () => window.removeEventListener('pointerdown', onDown, true);
   }, [c, c.panel]);
 
-  /** A cycle or an object to jump to, rather than a search. */
-  const isJump = (q: string) => /^\d[\d,]*$/.test(q) || /^([A-Za-z_][\w.]*)?#\d+$/.test(q);
+  const isJump = (q: string) => CYCLE.test(q) || OBJECT.test(q);
   const suggestions: Suggestion[] = focused && c.words && !isJump(query.trim()) ? suggest(query, c.words) : [];
 
   const edit = (text: string) => {
@@ -48,10 +51,10 @@ export function Header({ c, onOpen }: { c: Controller; onOpen: (file: File) => P
     let m: RegExpMatchArray | null;
     let landed = false;
     if (!q) return;
-    if (/^\d[\d,]*$/.test(q)) {
+    if (CYCLE.test(q)) {
       await c.jumpToCycle(Number(q.replace(/,/g, '')));
       landed = true;
-    } else if ((m = q.match(/^([A-Za-z_][\w.]*)?#(\d+)$/))) {
+    } else if ((m = q.match(OBJECT))) {
       landed = await c.jumpToObject(Number(m[2]), m[1]);
     } else {
       if (c.search?.text !== q) await c.setSearch(q);

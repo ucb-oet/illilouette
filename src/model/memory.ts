@@ -67,8 +67,7 @@ export class MemorySource implements Source {
     let i = Math.min(lo, this.starts.length - 1);
     for (let back = 0; back < 256 && i > 0; back++) {
       const prev = this.w.rows[i - 1];
-      if (this.starts[i - 1] <= cycle && (prev.end === null || prev.end > cycle)) i--;
-      else if (this.starts[i - 1] > cycle) i--;
+      if (this.starts[i - 1] > cycle || prev.end === null || prev.end > cycle) i--;
       else break;
     }
     return Math.max(0, i);
@@ -179,7 +178,7 @@ export class MemorySource implements Source {
     if (cached) return cached;
     const w = this.w;
     const t = w.strings;
-    const r: Row = w.rows[i];
+    const r = w.rows[i];
     const lastTo = r.end ?? w.lastCycle + 1;
     const fieldView = (f: Field) => ({ name: t[f.name], text: t[f.text], row: f.row, role: f.role });
     const view: RowView = {

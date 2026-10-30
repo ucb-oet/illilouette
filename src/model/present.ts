@@ -62,7 +62,7 @@ export function outcomeText(row: RowView, lastCycle: number): string {
 }
 
 /** Cycles spent in each stage, in the order the stages were first entered. */
-export function timeByStage(row: RowView): { stage: number; cycles: number; held: number }[] {
+export function timeByStage(row: RowView) {
   const out: { stage: number; cycles: number; held: number }[] = [];
   for (const s of row.segments) {
     let entry = out.find((x) => x.stage === s.stage);

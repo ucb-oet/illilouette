@@ -35,9 +35,17 @@ export interface TypeWords {
 export const MAX_OFFERED_VALUES = 24;
 
 const NAME = /^(?:[A-Za-z_]\w*|\*)$/;
+const HEX = /^0x[0-9a-f]+$/i;
 
 const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 const list = (names: string[]) => (names.length ? names.join(', ') : 'none');
+const names = (items: { name: string }[]) => [...new Set(items.map((x) => x.name))];
+/** Every type for *, or the type so named. */
+const typesNamed = (words: TypeWords[], name: string) => (name === '*' ? words : words.filter((t) => same(t.name, name)));
+/** The types' events: every one for *, or those so named. */
+const eventsNamed = (types: TypeWords[], name: string) => types.flatMap((t) => t.events).filter((e) => name === '*' || same(e.name, name));
+const fieldNames = (types: TypeWords[]) => names(types.flatMap((t) => t.fields));
+const eventNames = (types: TypeWords[]) => names(types.flatMap((t) => t.events));
 
 /** Reads a search, or says what is wrong with it. A dotted text whose first name is not a type, such as `fence.i`, is
  *  label text; with a value, it is a mistyped type. */
@@ -53,7 +61,7 @@ export function parseQuery(text: string, words: TypeWords[]): Query | { error: s
     return { kind: 'label', text: q };
   }
   const [typeName, second, third] = parts;
-  const types = typeName === '*' ? words : words.filter((t) => same(t.name, typeName));
+  const types = typesNamed(words, typeName);
   if (!types.length) {
     if (value === null) return { kind: 'label', text: q };
     return { error: `No object type is named ${typeName}. The types are ${list(words.map((t) => t.name))}.` };
@@ -63,29 +71,28 @@ export function parseQuery(text: string, words: TypeWords[]): Query | { error: s
     typeName === '*'
       ? `No type has ${kind === 'event' ? 'an' : 'a'} ${kind} ${name}. The ${kind}s are ${list(have)}.`
       : `${where} has no ${kind} ${name}. Its ${kind}s are ${list(have)}.`;
-  const fieldsOf = (ts: TypeWords[]) => [...new Set(ts.flatMap((t) => t.fields.map((f) => f.name)))];
-  const eventsOf = (ts: TypeWords[]) => [...new Set(ts.flatMap((t) => t.events.map((e) => e.name)))];
   if (value === '') return { error: `Give a value after =, as in ${path}=…` };
 
   if (parts.length === 2) {
     if (second === '*') return { error: `Name an event, or give a field of any event a value, as in ${typeName}.*.cause=…` };
-    const isField = fieldsOf(types).some((f) => same(f, second));
-    const isEvent = eventsOf(types).some((e) => same(e, second));
+    const isField = fieldNames(types).some((f) => same(f, second));
+    const isEvent = eventNames(types).some((e) => same(e, second));
     if (value !== null) {
       if (isField) return { kind: 'field', type: typeName, field: second, value };
-      if (isEvent) return { error: `${second} is an event of ${where}. Give one of its fields a value, as in ${path}.${eventFieldExample(types, second)}=…` };
-      return { error: missing('field', second, fieldsOf(types)) };
+      const example = eventsNamed(types, second)[0]?.fields[0]?.name ?? 'field';
+      if (isEvent) return { error: `${second} is an event of ${where}. Give one of its fields a value, as in ${path}.${example}=…` };
+      return { error: missing('field', second, fieldNames(types)) };
     }
     if (isEvent) return { kind: 'event', type: typeName, event: second, field: null, value: null };
     if (isField) return { error: `${second} is a field of ${where}. Give it a value, as in ${path}=…` };
-    return { error: missing('event', second, eventsOf(types)) };
+    return { error: missing('event', second, eventNames(types)) };
   }
 
   if (third === '*') return { error: '* stands for a type or an event, not a field.' };
   if (value === null) return { error: `Give the field a value, as in ${path}=…` };
-  const events = types.flatMap((t) => t.events).filter((e) => second === '*' || same(e.name, second));
-  if (!events.length) return { error: missing('event', second, eventsOf(types)) };
-  const fields = [...new Set(events.flatMap((e) => e.fields.map((f) => f.name)))];
+  const events = eventsNamed(types, second);
+  if (!events.length) return { error: missing('event', second, eventNames(types)) };
+  const fields = names(events.flatMap((e) => e.fields));
   if (!fields.some((f) => same(f, third))) {
     if (second === '*') return { error: `No event of ${where} has a field ${third}. Their fields are ${list(fields)}.` };
     if (!fields.length) return { error: `${second} has no fields.` };
@@ -94,14 +101,9 @@ export function parseQuery(text: string, words: TypeWords[]): Query | { error: s
   return { kind: 'event', type: typeName, event: second, field: third, value };
 }
 
-function eventFieldExample(types: TypeWords[], event: string): string {
-  const e = types.flatMap((t) => t.events).find((x) => same(x.name, event));
-  return e?.fields[0]?.name ?? 'field';
-}
-
 function asNumber(s: string): bigint | null {
   const t = s.trim();
-  if (/^0x[0-9a-f]+$/i.test(t) || /^\d+$/.test(t)) return BigInt(t);
+  if (HEX.test(t) || /^\d+$/.test(t)) return BigInt(t);
   return null;
 }
 
@@ -116,8 +118,8 @@ export function sameValue(text: string, value: string): boolean {
 
 /** Whether label texts hold a search's text, ignoring case; a 0x number matches a label's numbers by value. */
 export function labelHolds(texts: string[], text: string): boolean {
-  const n = /^0x[0-9a-f]+$/i.test(text) ? BigInt(text) : null;
-  if (n !== null) return texts.some((t) => t.split(/[^0-9A-Za-z_]+/).some((w) => /^0x[0-9a-f]+$/i.test(w) && BigInt(w) === n));
+  const n = HEX.test(text) ? BigInt(text) : null;
+  if (n !== null) return texts.some((t) => t.split(/[^0-9A-Za-z_]+/).some((w) => HEX.test(w) && BigInt(w) === n));
   const lower = text.toLowerCase();
   return texts.some((t) => t.toLowerCase().includes(lower));
 }
@@ -148,7 +150,7 @@ export function suggest(text: string, words: TypeWords[]): Suggestion[] {
     if (q === '' || q === '*') out.push({ text: '*.', kind: 'type' });
     return out.slice(0, MAX_SUGGESTIONS);
   }
-  const types = parts[0] === '*' ? words : words.filter((t) => same(t.name, parts[0]));
+  const types = typesNamed(words, parts[0]);
   if (!types.length) return [];
   const typeName = parts[0] === '*' ? '*' : types[0].name;
 
@@ -157,12 +159,7 @@ export function suggest(text: string, words: TypeWords[]): Suggestion[] {
     const prefix = q.slice(eq + 1).trim();
     let fields: FieldWords[] = [];
     if (parts.length === 2) fields = types.flatMap((t) => t.fields).filter((f) => same(f.name, parts[1]));
-    else if (parts.length === 3)
-      fields = types
-        .flatMap((t) => t.events)
-        .filter((e) => parts[1] === '*' || same(e.name, parts[1]))
-        .flatMap((e) => e.fields)
-        .filter((f) => same(f.name, parts[2]));
+    else if (parts.length === 3) fields = eventsNamed(types, parts[1]).flatMap((e) => e.fields).filter((f) => same(f.name, parts[2]));
     const values = new Set<string>();
     for (const f of fields) for (const v of f.values ?? []) if (starts(v, prefix)) values.add(v);
     for (const v of [...values].sort()) out.push({ text: `${path}=${v}`, kind: 'value' });
@@ -171,25 +168,15 @@ export function suggest(text: string, words: TypeWords[]): Suggestion[] {
 
   if (parts.length === 2) {
     const prefix = parts[1];
-    const fields = [...new Set(types.flatMap((t) => t.fields.map((f) => f.name)))];
-    const events = [...new Set(types.flatMap((t) => t.events.map((e) => e.name)))];
-    for (const f of fields) if (starts(f, prefix)) out.push({ text: `${typeName}.${f}=`, kind: 'field' });
-    for (const e of events) if (starts(e, prefix)) out.push({ text: `${typeName}.${e}`, kind: 'event' });
+    for (const f of fieldNames(types)) if (starts(f, prefix)) out.push({ text: `${typeName}.${f}=`, kind: 'field' });
+    for (const e of eventNames(types)) if (starts(e, prefix)) out.push({ text: `${typeName}.${e}`, kind: 'event' });
     if (prefix === '' || prefix === '*') out.push({ text: `${typeName}.*.`, kind: 'event' });
     return out.slice(0, MAX_SUGGESTIONS);
   }
 
   if (parts.length === 3) {
     const prefix = parts[2];
-    const fields = [
-      ...new Set(
-        types
-          .flatMap((t) => t.events)
-          .filter((e) => parts[1] === '*' || same(e.name, parts[1]))
-          .flatMap((e) => e.fields.map((f) => f.name)),
-      ),
-    ];
-    for (const f of fields) if (starts(f, prefix)) out.push({ text: `${typeName}.${parts[1]}.${f}=`, kind: 'field' });
+    for (const f of names(eventsNamed(types, parts[1]).flatMap((e) => e.fields))) if (starts(f, prefix)) out.push({ text: `${typeName}.${parts[1]}.${f}=`, kind: 'field' });
   }
   return out.slice(0, MAX_SUGGESTIONS);
 }
