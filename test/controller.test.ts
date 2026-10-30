@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { MemorySource } from '../src/model/memory';
 import { Controller, RULER, ZOOM_STEP } from '../src/ui/controller';
 import { linksShown, detailOf } from '../src/ui/render';
 import { build, FETCH, INSTRUCTION, open, pipeline, staircase } from './build';
@@ -12,6 +13,17 @@ describe('Opening a file', () => {
   it('sizes the label column to the labels, up to 40% of the waterfall', async () => {
     expect((await stairs()).gutterW).toBeLessThan(0.4 * 1200);
     expect((await open(staircase(300), 600, 800)).gutterW).toBe(240);
+  });
+});
+
+describe('Loading rows', () => {
+  it('serves rows asked for while their chunk is still on its way', async () => {
+    const source = new MemorySource(staircase(10));
+    const slow = Object.create(source) as MemorySource;
+    slow.rows = (first, last) => new Promise((resolve) => setTimeout(() => resolve(source.rows(first, last)), 5));
+    const c = new Controller(slow);
+    const rows = await Promise.all([c.rowAsync(0), c.rowAsync(1)]);
+    expect(rows.map((r) => r.index)).toEqual([0, 1]);
   });
 });
 

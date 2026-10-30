@@ -120,7 +120,8 @@ export class Controller {
   private readonly sized = new Promise<void>((resolve) => (this.markSized = resolve));
 
   private chunks = new Map<number, RowView[]>();
-  private pending = new Set<number>();
+  /** Chunks on their way from the source, which every caller asking for one waits on. */
+  private loading = new Map<number, Promise<void>>();
   private listeners = new Set<() => void>();
   private redrawHook: (() => void) | null = null;
 
@@ -216,14 +217,18 @@ export class Controller {
     return this.chunks.get(chunk)![i - chunk * CHUNK];
   }
 
-  private async load(chunk: number): Promise<void> {
-    if (this.pending.has(chunk)) return;
-    this.pending.add(chunk);
-    const rows = await this.source.rows(chunk * CHUNK, (chunk + 1) * CHUNK);
-    this.pending.delete(chunk);
-    this.chunks.set(chunk, rows);
-    while (this.chunks.size > MAX_CHUNKS) this.chunks.delete(this.chunks.keys().next().value!);
-    this.redraw();
+  private load(chunk: number): Promise<void> {
+    let loaded = this.loading.get(chunk);
+    if (!loaded) {
+      loaded = this.source.rows(chunk * CHUNK, (chunk + 1) * CHUNK).then((rows) => {
+        this.loading.delete(chunk);
+        this.chunks.set(chunk, rows);
+        while (this.chunks.size > MAX_CHUNKS) this.chunks.delete(this.chunks.keys().next().value!);
+        this.redraw();
+      });
+      this.loading.set(chunk, loaded);
+    }
+    return loaded;
   }
 
   /** Shows a note in the status bar, in place of the hover readout. */
