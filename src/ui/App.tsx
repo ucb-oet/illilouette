@@ -17,7 +17,7 @@ import { Waterfall } from './Waterfall';
 
 applyThemeChoice(loadThemeChoice());
 
-/** Reads a waterfall file, gzipped or not; on failure, throws an error whose message names the file and the problem. */
+/** Reads a waterfall file, gzipped or not. */
 async function read(file: File): Promise<MemorySource> {
   try {
     return new MemorySource(await readWaterfall(new Uint8Array(await file.arrayBuffer())));
@@ -32,8 +32,7 @@ export function App() {
   return source ? <Viewer key={source.info.title + source.info.rowCount} source={source} onOpen={open} /> : <Landing onOpen={open} />;
 }
 
-/** Fetches the example as a file, telling how much of it has arrived as it comes: a fraction, or null when the
- *  server does not say how large it is. */
+/** Fetches the example; `arrived` gets a fraction, or null when the server does not say how large it is. */
 async function fetchExample(arrived: (fraction: number | null) => void): Promise<File> {
   const response = await fetch(EXAMPLE);
   if (!response.ok || !response.body) throw new Error(`The example could not be fetched: ${response.status} ${response.statusText}.`);
@@ -55,7 +54,6 @@ async function fetchExample(arrived: (fraction: number | null) => void): Promise
 function Landing({ onOpen }: { onOpen: (f: File) => Promise<void> }) {
   const [over, setOver] = useState(false);
   const [error, setError] = useState('');
-  // What is being opened, a chosen file or the example, and how much of the example has arrived.
   const [busy, setBusy] = useState<'file' | 'example' | null>(null);
   const [arrived, setArrived] = useState<number | null>(null);
   const picker = useRef<HTMLInputElement>(null);
@@ -122,7 +120,6 @@ function Landing({ onOpen }: { onOpen: (f: File) => Promise<void> }) {
           />
         </div>
         {error && <p class="error">{error}</p>}
-        {/* TODO: connect to a local server for files too large to load in the browser. */}
       </div>
     </main>
   );
@@ -133,7 +130,6 @@ function Viewer({ source, onOpen }: { source: MemorySource; onOpen: (f: File) =>
   const [dropping, setDropping] = useState(false);
 
   useEffect(() => {
-    // Open at the file's start, once the canvas has its size.
     void c.home();
     const onKey = (ev: KeyboardEvent) => {
       const target = ev.target as HTMLElement | null;
@@ -144,7 +140,6 @@ function Viewer({ source, onOpen }: { source: MemorySource; onOpen: (f: File) =>
       }
       if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
       const k = ev.key;
-      // While the list of keys is open, only its own keys act.
       if (c.helpOpen) {
         if (k === '?' || k === 'Escape') {
           c.toggleHelp();
@@ -152,7 +147,6 @@ function Viewer({ source, onOpen }: { source: MemorySource; onOpen: (f: File) =>
         }
         return;
       }
-      // Keys are read as vim reads them: a count before a command, such as 20j, and commands of two keys, such as gg.
       const { pending, command } = readKey(c.keysPending, k);
       if (pending !== c.keysPending) {
         c.keysPending = pending;
@@ -185,7 +179,6 @@ function Viewer({ source, onOpen }: { source: MemorySource; onOpen: (f: File) =>
         case 'd':
           c.panTime(((command.key === 'd' ? n : -n) * c.visibleCycles) / 8);
           break;
-        // The selection moves as vim's cursor does: by rows, keeping its column, and by cycles.
         case 'ArrowDown':
         case 'j':
           c.moveSelection(n);
@@ -293,7 +286,7 @@ function Viewer({ source, onOpen }: { source: MemorySource; onOpen: (f: File) =>
           c.toggleHelp();
           break;
         default:
-          // z1 to z9 show or hide a type; other keys are the browser's.
+          // Other keys are the browser's.
           if (/^z[1-9]$/.test(command.key)) void c.toggleType(Number(command.key[1]) - 1);
           else return;
       }
@@ -308,8 +301,7 @@ function Viewer({ source, onOpen }: { source: MemorySource; onOpen: (f: File) =>
     window.addEventListener('wheel', clearNotice, { capture: true, passive: true });
     window.addEventListener('keydown', onKey);
 
-    // A file dropped anywhere on the page opens in place of this one, as Open… does. Entering and leaving each element
-    // on the way are counted, so that the outline stays while the file is over the page.
+    // dragenter and dragleave fire per element crossed; counting keeps the outline while over the page.
     const hasFiles = (ev: DragEvent) => Array.from(ev.dataTransfer?.types ?? []).includes('Files');
     let over = 0;
     const onDragEnter = (ev: DragEvent) => {
@@ -389,7 +381,6 @@ function Status({ c }: { c: Controller }) {
   return (
     <footer class="status">
       <span class="readout">
-        {/* Keys waiting for the rest of their command, as vim shows them. */}
         {c.keysPending ? <span class="notice">{c.keysPending}…</span> : c.notice ? <span class="notice">{c.notice}</span> : readout}
       </span>
       <span>

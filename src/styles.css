@@ -1,5 +1,3 @@
-/* Layout: a header with the jump box and toggles, a timeline bar of the whole trace, then the waterfall with the
-   detail panel on its right, and a status bar. Colors are Catppuccin: Latte by default, Mocha in dark mode. */
 :root {
   color-scheme: light;
   /* Catppuccin Latte */
@@ -12,18 +10,15 @@
   --red: #d20f39; --lavender: #7287fd;
   --wash: 0.30;
 
-  /* Roles. Stage colors follow stage order; the first four were checked for color-blind separation between
-     neighbors in both themes. */
+  /* Roles. The first four stage colors were checked for color-blind separation between neighbors in both themes. */
   --stage-0: var(--sapphire); --stage-1: var(--peach); --stage-2: var(--mauve); --stage-3: var(--green);
   --stage-4: var(--pink); --stage-5: var(--teal); --stage-6: var(--yellow); --stage-7: var(--blue);
   --killed: var(--red);
   --blocked: var(--yellow);
   --event: var(--overlay1);
   --accent: var(--lavender);
-  /* Cursor groups, most distinct first: sky, red, yellow, pink, blue, green. A cursor is a vertical line with a lane of
-     its own, so its color may share a hue used elsewhere; lavender, the selection's, is left out. Its tag is outlined
-     in its color and filled with --cursor-fill, its text in --cursor-ink: in Latte a light tint of the color, 18% of
-     it over the strip's ground, and a deep shade of it, darkened in OKLCH to 4.5:1 on the tint. */
+  /* Cursor groups, most distinct first: sky, red, yellow, pink, blue, green; lavender is left out as the selection's.
+     Latte: fill, 18% of the color over the strip's ground; ink, the color darkened in OKLCH to 4.5:1 on the fill. */
   --cursor-0: #04a5e5; --cursor-1: #d20f39; --cursor-2: #df8e1d; --cursor-3: #ea76cb; --cursor-4: #1e66f5;
   --cursor-5: #40a02b;
   --cursor-fill-0: #bddded; --cursor-fill-1: #e2c2ce; --cursor-fill-2: #e5d9c9; --cursor-fill-3: #e7d4e9;
@@ -33,8 +28,7 @@
 
   --font-ui: "Geist Variable", "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-data: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  /* Corners: surfaces and floating layers, and controls and rows. Marks keep 2 px, key caps 4 px, and page-wide
-     cards 12 px. */
+  /* Corners of surfaces and layers, then controls and rows; marks keep 2 px, key caps 4 px, page-wide cards 12 px. */
   --radius: 8px;
   --radius-control: 6px;
 }
@@ -52,7 +46,6 @@
     --wash: 0.34;
     --cursor-0: #89dceb; --cursor-1: var(--red); --cursor-2: var(--yellow); --cursor-3: var(--pink);
     --cursor-4: var(--blue); --cursor-5: var(--green);
-    /* Mocha's tags are empty, on the strip's ground, their text in the cursor's color. */
     --cursor-fill-0: var(--mantle); --cursor-fill-1: var(--mantle); --cursor-fill-2: var(--mantle);
     --cursor-fill-3: var(--mantle); --cursor-fill-4: var(--mantle); --cursor-fill-5: var(--mantle);
     --cursor-ink-0: var(--cursor-0); --cursor-ink-1: var(--cursor-1); --cursor-ink-2: var(--cursor-2);
@@ -128,16 +121,13 @@ kbd {
   background: var(--mantle); box-shadow: inset 0 0 0 1px var(--surface0); cursor: pointer; font-size: 13px;
 }
 .chip[aria-pressed="false"] { color: var(--overlay1); }
-/* The type in focus, drawn in full. */
 .chip.focused { box-shadow: inset 0 0 0 1.5px var(--accent); }
 .chip kbd { margin-right: 2px; }
-/* One mark per type: for the type in focus, a fill with the bar beneath, stronger than its cells' wash so that it
-   reads at this size; for the others, the bar alone, as their cells keep only their bars. */
+/* The focused type's fill is stronger than its cells' wash, so that it reads at this size. */
 .chip .mark { position: relative; width: 14px; height: 10px; border-radius: 2px; overflow: hidden; display: block; }
 .chip .mark::after { content: ""; position: absolute; inset: auto 0 0; height: 2px; background: var(--stage-0); }
 .chip .mark.filled::before { content: ""; position: absolute; inset: 0; background: var(--stage-0); opacity: 0.5; }
 .chip[aria-pressed="false"] .mark { opacity: 0.35; }
-/* The buttons at the header's end, as close as the chips, and as tall as every control in the header. */
 .actions { display: flex; align-items: center; gap: 6px; }
 .actions label.plain { display: inline-flex; align-items: center; height: 28px; padding-block: 0; }
 .icon { position: relative; display: inline-grid; place-items: center; color: var(--subtext1); }
@@ -146,7 +136,7 @@ kbd {
 .icon[aria-expanded="true"] { box-shadow: inset 0 0 0 1.5px var(--accent); }
 .icon .dot { position: absolute; top: 3px; right: 3px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
 
-/* The view panel, a floating layer under its button that leaves the waterfall usable. */
+/* View panel */
 .view-anchor { position: relative; display: flex; }
 .view-panel {
   position: absolute; top: calc(100% + 6px); right: 0; z-index: 5; min-width: 270px; padding: 10px 12px;
@@ -157,7 +147,7 @@ kbd {
   margin: 0 0 4px; font-size: 11px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--subtext0);
 }
 .view-panel h3 kbd { text-transform: none; letter-spacing: 0; font-weight: 400; margin-left: 4px; }
-/* The types' focus is a column of radios under one heading, centered under it. */
+/* The Focus heading and its radios share a width, so that the radios center under it. */
 .view-panel h3.cols { display: flex; }
 .view-panel h3 .col, .view-panel .focus { width: 64px; margin-left: auto; justify-content: center; text-align: center; white-space: nowrap; }
 .view-panel .opt { display: flex; align-items: center; gap: 10px; min-height: 26px; }
@@ -165,7 +155,6 @@ kbd {
 .view-panel .opt > label:first-child { margin-right: auto; }
 .view-panel .n { font: 12px var(--font-data); color: var(--subtext0); font-variant-numeric: tabular-nums; }
 .view-panel input { accent-color: var(--accent); margin: 0; }
-/* The cursor panel: a row per cursor, grouped by color. */
 .cursor-panel { min-width: 300px; }
 .cursor-panel .empty { margin: 0; color: var(--subtext0); max-width: 34ch; }
 .cursor-panel .lane { display: grid; gap: 2px; padding-top: 6px; border-top: 1px solid var(--surface0); }
@@ -206,8 +195,7 @@ kbd {
   content: ""; position: absolute; top: 0; bottom: 0; left: 4px; width: 1px; background: var(--accent);
 }
 
-/* A new cursor's name and its group's colors, on its lane of the cursor strip; --group, --fill, and --ink are the
-   cursor's colors. */
+/* --group, --fill, and --ink are set inline per cursor. */
 .cursor-name { position: absolute; z-index: 2; display: flex; align-items: center; gap: 8px; }
 .cursor-name input {
   width: 140px; height: 18px; padding: 0 6px; border: 1px solid var(--group); border-radius: 4px;
@@ -312,7 +300,6 @@ kbd {
 .help-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 .help-head h2 { margin: 0; font-size: 15px; font-weight: 600; }
 .help-head h2 span { margin-left: 8px; font-size: 13px; font-weight: 400; color: var(--subtext0); }
-/* Three columns, fewer on narrower screens; each group stays whole, so that the long ones balance the short. */
 .help-groups { columns: 3 300px; column-gap: 32px; }
 .help-groups section { break-inside: avoid; margin-bottom: 16px; }
 .help h3 {

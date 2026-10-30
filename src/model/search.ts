@@ -1,18 +1,11 @@
-// Searches: one term, either text in an object's label or a named field or event, type first, as the trace names its
-// events. The rules are the plan's "Jump box and search"; none of them is a trace rule.
-//
-//   csrr, sw gp                               label text, ignoring case; a bare 0x number matches label numbers by value
-//   instruction.pc=0x80000050                 an object's own field
-//   instruction.mark_replay.cause=cache_nack  a field of one of its events
-//   instruction.flush                         objects with that event
-//   *.pc=…, instruction.*.cause=…             * stands for any one whole type or event name
+// Search queries: parsing, value matching, and completions; the syntax is in README's Searching section.
 
 export type Query =
   | { kind: 'label'; text: string }
   | { kind: 'field'; type: string; field: string; value: string }
   | { kind: 'event'; type: string; event: string; field: string | null; value: string | null };
 
-/** A match: an object's row, and the cycle a jump to it selects. */
+/** An object's row, and the cycle a jump to it selects. */
 export interface Match {
   row: number;
   cycle: number;
@@ -21,7 +14,7 @@ export interface Match {
 export interface SearchResult {
   /** In the order the rows are listed, top to bottom. */
   matches: Match[];
-  /** Matching objects of hidden types, which are left out. */
+  /** Matches the filter hides. */
   skipped: number;
 }
 
@@ -66,7 +59,6 @@ export function parseQuery(text: string, words: TypeWords[]): Query | { error: s
     return { error: `No object type is named ${typeName}. The types are ${list(words.map((t) => t.name))}.` };
   }
   const where = typeName === '*' ? 'any type' : types[0].name;
-  // "instruction has no field pcc. Its fields are pc, bits, fetch.", or for *, "No type has a field pcc. …"
   const missing = (kind: string, name: string, have: string[]) =>
     typeName === '*'
       ? `No type has ${kind === 'event' ? 'an' : 'a'} ${kind} ${name}. The ${kind}s are ${list(have)}.`
@@ -113,8 +105,8 @@ function asNumber(s: string): bigint | null {
   return null;
 }
 
-/** Whether a field's text is a search's value: numbers by value, so 0x80000050 is 0x0080000050; other texts, such as a
- *  cause or an object as type#id, whole, ignoring case. */
+/** Whether a field's text is a search's value: numbers by value (0x80000050 is 0x0080000050), other texts whole,
+ *  ignoring case. */
 export function sameValue(text: string, value: string): boolean {
   const a = asNumber(text);
   const b = asNumber(value);
@@ -133,7 +125,6 @@ export function labelHolds(texts: string[], text: string): boolean {
 export interface Suggestion {
   /** The box's whole text once the suggestion is taken. */
   text: string;
-  /** What it is: a type, field, event, or value. */
   kind: 'type' | 'field' | 'event' | 'value';
 }
 

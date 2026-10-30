@@ -1,6 +1,4 @@
-// What the drawing code asks for. It never touches the file: a source answers from a file loaded in the browser
-// today, and from a server for large files later.
-// TODO: a server-backed source with a version handshake, for files too large to load whole.
+// What the UI reads the file through; MemorySource implements it, and a server-backed source is planned.
 import type { Effect, Role } from '../file/waterfall';
 import type { Query, SearchResult, TypeWords } from './search';
 
@@ -14,12 +12,11 @@ export interface Info {
   focus: number;
   rowCount: number;
   summary: TypeSummary[];
-  /** Links in the file, by kind: fields naming another object. */
+  /** Event fields naming another row, by kind. */
   links: Record<LinkKind, number>;
 }
 
-/** What a link says, from the role of the field that draws it: the object it runs from aborted the object it
- *  runs to, or blocks it, or is anything else to it, such as its parent. */
+/** A link's kind, from its field's role. */
 export type LinkKind = 'aborted' | 'blocked' | 'other';
 
 export const LINK_KINDS: readonly LinkKind[] = ['aborted', 'blocked', 'other'];

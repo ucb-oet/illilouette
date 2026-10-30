@@ -1,10 +1,8 @@
-// The palette toggle, between Latte and Mocha: in the header, and on the landing before a file is open.
 import { useEffect, useState } from 'preact/hooks';
 import { applyThemeChoice, isDark, onThemeChange, type ThemeChoice } from './theme';
 
 export function ThemeButton() {
-  // Read from the page, which every toggle sets, and redrawn as it changes or, while no choice is made, as the
-  // system's setting does.
+  // Read from the page; rerenders when it or the system setting changes.
   const [, setTick] = useState(0);
   useEffect(() => onThemeChange(() => setTick((n) => n + 1)), []);
   const dark = isDark((document.documentElement.dataset.theme as ThemeChoice | undefined) ?? 'system');

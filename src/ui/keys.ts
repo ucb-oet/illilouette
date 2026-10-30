@@ -1,7 +1,6 @@
 // Reading keys as vim does: a count before a command, such as 20j, and commands of two keys, such as gg, zz, and z2.
-// The keys read so far wait in `pending`, which the status bar shows, until a command completes them.
 
-/** A command read from the keys: the key, or for two keys, both, such as "gg" or "z2"; and its count, 1 if none. */
+/** A key, or two keys such as "gg" or "z2", and its count, 1 if none. */
 export interface Command {
   key: string;
   count: number;
@@ -19,9 +18,7 @@ const SECOND: Record<string, RegExp> = {
   z: /^[ztb1-9]$/,
 };
 
-/** Reads one key after those pending: returns what is pending next, and the command it completes, if any. Esc drops
- *  what is pending, and is a command of its own only when nothing is. A key a pending first key does not take drops
- *  both. */
+/** Reads one key after those pending: returns what is pending next, and the command it completes, if any. */
 export function readKey(pending: string, key: string): { pending: string; command: Command | null } {
   if (MODIFIERS.has(key)) return { pending, command: null };
   const first = pending.slice(-1);

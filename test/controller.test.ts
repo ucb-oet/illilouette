@@ -7,6 +7,7 @@ import { linksShown, detailOf } from '../src/ui/render';
 import { build, FETCH, INSTRUCTION, open, pipeline, staircase } from './build';
 
 // 300 packets and their 240 instructions: every fifth packet is killed before decode.
+// instruction#100: decode at 202, memory at 203, writeback at 204, retire at 205.
 const stairs = () => open(staircase(300));
 const rowOf = (c: Controller, id: number, type: number) => c.source.find(id, type) as Promise<number>;
 
@@ -115,7 +116,6 @@ describe('Panning to a selected object\'s start and end', () => {
     const before = c.x0;
     await c.toSelectedEdge('end');
     expect(c.x0).toBe(before);
-    // instruction#100: decode at 202, retired after 205.
     const i = await rowOf(c, 100, INSTRUCTION);
     c.select(i);
     await c.toSelectedEdge('end');
@@ -132,7 +132,6 @@ describe('Panning to a selected object\'s start and end', () => {
 describe('Focusing the selected object', () => {
   it('puts its row a third of the way down and its first event a third of the way in; from a label, only time moves', async () => {
     const c = await stairs();
-    // instruction#100: decode at 202, retired after 205.
     const i = await rowOf(c, 100, INSTRUCTION);
     c.select(i);
     await c.focusSelected();
@@ -295,7 +294,6 @@ describe('Vim moves', () => {
 
   it('go through the selected object\'s events with ] and [, counts included', async () => {
     const c = await stairs();
-    // instruction#100: decode at 202, memory at 203, writeback at 204, retire at 205.
     await c.jumpToObject(100, 'instruction');
     await c.moveEvent(1);
     expect(c.column).toBe(202);

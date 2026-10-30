@@ -1,5 +1,4 @@
-// A plain bar of the whole trace: its cycle range, a marker for the current view, click or drag to move there, with
-// the rows following to the objects in the new range.
+// A bar of the whole trace, with a marker for the view; a click or drag moves the view there.
 import { useEffect, useRef } from 'preact/hooks';
 import { fmt } from '../model/present';
 import { Controller } from './controller';

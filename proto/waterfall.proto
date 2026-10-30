@@ -1,8 +1,6 @@
 // The waterfall file: what a post-processor writes from an EventTrace trace, its manifest, and the design's view
-// configuration, and what the viewer loads as it is. Everything the viewer draws is already derived here, so the
-// viewer applies none of the trace's rules.
-//
-// A file is one Waterfall message. TODO: a chunked, indexed layout for large files, served by row range.
+// configuration. Everything the viewer draws is already derived here; the viewer applies none of the trace's rules.
+// A file is one Waterfall message.
 syntax = "proto3";
 
 package illilouette;
@@ -22,8 +20,8 @@ message Waterfall {
   repeated Type types = 7;
   // In display order.
   repeated Row rows = 8;
-  // Index into types of the type in focus when the file opens, drawn in full, as the design's view names it, such as
-  // "instruction"; 0, the first type, when the view names none.
+  // Index into types of the type in focus when the file opens, as the design's view names it, such as "instruction";
+  // 0, the first type, when the view names none.
   uint32 focus = 9;
 }
 

@@ -1,6 +1,4 @@
-// The cursor panel, opened with c or the header's Cursors button: each group's cursors, in order, with the distance
-// from the one before in the group. A click on a name renames it, on a color moves the cursor to another group, on ×
-// removes it, and on a cursor's cycle pans to it. Like the view panel, it does not block the waterfall.
+// The cursor panel (c).
 import type { RefObject } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { fmt } from '../model/present';

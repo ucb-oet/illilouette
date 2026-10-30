@@ -1,5 +1,4 @@
-// Text and facts derived from a row for display. These describe what the file already says; none applies a trace
-// rule of its own.
+// Display text derived from rows.
 import type { EventView, FieldView, RowView, SegmentView } from './source';
 
 export const fmt = (n: number) => n.toLocaleString('en-US');
@@ -12,9 +11,9 @@ export function segmentAt(row: RowView, cycle: number): SegmentView | null {
   return null;
 }
 
-/** What an event did, on the waterfall's clock: "enters Decode at 41,403", "while in Decode", "leaves Memory after 41,466".
- *  A row that starts in the cycle of the event that creates it is in its first stage during that cycle, and the
- *  event's own effect lands at the edge after it: "created in Decode at 629 · enters Execute at 630". */
+/** "enters Decode at 41,403", "while in Decode", "leaves Memory after 41,466". A row is in its first stage in its
+ *  creating event's cycle, and that event's effect lands after it: "created in Decode at 629 · enters Execute at
+ *  630". */
 export function effectText(row: RowView, e: EventView, stages: string[]): string {
   const at = segmentAt(row, e.cycle);
   const first = row.segments[0];
@@ -36,7 +35,6 @@ export function effectText(row: RowView, e: EventView, stages: string[]): string
   }
 }
 
-/** A field as text; a field naming another object also says where that object was, when its row is given. */
 export function fieldText(f: FieldView, other?: RowView, cycle?: number, stages?: string[]): string {
   return `${f.name} ${fieldValue(f, other, cycle, stages)}`;
 }
@@ -50,9 +48,7 @@ export function fieldValue(f: FieldView, other?: RowView, cycle?: number, stages
   return f.text;
 }
 
-/** How an object ended, by the event that ended it: "Completed: retire", or "Aborted: flush" for any end other than
- *  its type's normal one. The event is named after a colon, since "by" names an object, as in "aborted by
- *  instruction#2". */
+/** "Completed: retire" or "Aborted: flush"; a colon, since "by" names an object. */
 export function endText(event: string, normal: boolean): string {
   return `${normal ? 'Completed' : 'Aborted'}: ${event}`;
 }

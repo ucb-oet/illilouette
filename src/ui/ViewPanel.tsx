@@ -1,12 +1,10 @@
-// The view panel, opened with o or the header's View button: settings changed now and then, beside the state of those
-// with keys. It does not block the waterfall, which changes behind it as settings do.
+// The view panel (o).
 import type { RefObject } from 'preact';
 import { useEffect, useRef } from 'preact/hooks';
 import { fmt } from '../model/present';
 import { LINK_KINDS, type LinkKind } from '../model/source';
 import { Controller, useController } from './controller';
 
-/** Each kind of link, as the panel lists it beside its color. */
 const LINK_NAMES: Record<LinkKind, string> = {
   aborted: 'Aborted by',
   blocked: 'Blocked by',

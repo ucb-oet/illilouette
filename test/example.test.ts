@@ -1,6 +1,4 @@
-// The example the landing page offers, which ships with the page and so is checked in CI, unlike Chipyard's files:
-// it must open with this viewer's format, and carry what the viewer draws in color, which a file from a reader older
-// than the format's link roles would lack, drawing every link gray, and the type its view puts in focus.
+// The shipped example must open with this format and carry blocking sites, every link kind, and its focus type.
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { expect, it } from 'vitest';

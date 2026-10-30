@@ -1,5 +1,4 @@
-// Small waterfall files built in code, for tests that pin exact values: the Waterfall the decoder returns, and the
-// bytes it decodes from. Real files, from Chipyard's reader, are smoke-tested in files.test.ts.
+// Waterfall files built in code, and their encoding.
 import { ROLES, type Effect, type Field, type Role, type Site, type Waterfall } from '../src/file/waterfall';
 import { MemorySource } from '../src/model/memory';
 import { Controller } from '../src/ui/controller';
@@ -7,9 +6,7 @@ import { Controller } from '../src/ui/controller';
 export interface FieldSpec {
   name: string;
   text: string;
-  /** The row of the object the field names, if any. */
   row?: number;
-  /** What that object is to this one; none if absent. */
   role?: Role;
 }
 
@@ -18,7 +15,7 @@ export interface EventSpec {
   /** The event's whole name, such as "instruction.decode". */
   name: string;
   effect?: Effect;
-  /** Whether it finds its object blocked; its site is then one of its own, as a blocking site is in the reader. */
+  /** Blocks its object; gets a site of its own. */
   blocks?: boolean;
   fields?: FieldSpec[];
 }
@@ -29,7 +26,6 @@ export interface RowSpec {
   label?: string[];
   /** Segments as [from, stage, held]. */
   segments: [number, number, number?][];
-  /** The first cycle after the object's life; absent while it is live when the trace ends. */
   end?: number;
   endedBy?: string;
   normalEnd?: boolean;
@@ -44,7 +40,6 @@ export interface FileSpec {
   lastCycle: number;
   types: { name: string; stages: string[] }[];
   rows: RowSpec[];
-  /** The type in focus when the file opens; the first when left out. */
   focus?: number;
 }
 
@@ -104,7 +99,6 @@ export function build(spec: FileSpec): Waterfall {
   };
 }
 
-/** The bytes of a waterfall, as proto/waterfall.proto lays them out. */
 export function encode(w: Waterfall): Uint8Array {
   const out: number[] = [];
   const varint = (n: number) => {

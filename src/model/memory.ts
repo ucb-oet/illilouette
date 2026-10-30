@@ -41,7 +41,7 @@ export class MemorySource implements Source {
         }
         return { name: t[type.name], stages: type.stages.map((s) => t[s]), labelWidths, idWidth, ancestorTypes: ancestors };
       }),
-      // A type the file does not have, as a damaged file might name, reads as the first.
+      // A focus past the last type, as a damaged file might hold, reads as the first.
       focus: w.focus < w.types.length ? w.focus : 0,
       summary: w.types.map((type, ti) => summarize(t[type.name], ti, w)),
       links: countLinks(w),
@@ -139,7 +139,6 @@ export class MemorySource implements Source {
       if (hides(filter, r)) skipped++;
       else matches.push({ row: i, cycle });
     });
-    // Rows are visited in order, so the matches are in the order the rows are listed.
     return { matches, skipped };
   }
 
@@ -218,7 +217,6 @@ export class MemorySource implements Source {
   }
 }
 
-/** Whether a filter hides a row: by its type, or as an aborted object. */
 function hides(filter: RowFilter, r: Row): boolean {
   return filter.types.has(r.type) || (filter.aborted && r.end !== null && !r.normalEnd);
 }
@@ -230,7 +228,6 @@ function ancestorTypes(w: Waterfall, r: Row): number[] {
   return types;
 }
 
-/** The file's links by kind: event fields naming another row, as the waterfall draws them. */
 function countLinks(w: Waterfall): Record<LinkKind, number> {
   const n: Record<LinkKind, number> = { aborted: 0, blocked: 0, other: 0 };
   w.rows.forEach((r, i) => {

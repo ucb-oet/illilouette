@@ -1,5 +1,4 @@
-// Decodes a waterfall file, proto/waterfall.proto, into plain objects, from the file as written or gzipped. Field
-// comments are in the schema.
+// Decodes a waterfall file, gzipped or not, into plain objects; proto/waterfall.proto documents the fields.
 import { Reader, Wire } from './pb';
 
 const FORMAT_VERSION = 1;
@@ -13,7 +12,6 @@ export interface Waterfall {
   sites: Site[];
   types: Type[];
   rows: Row[];
-  /** Index into types of the type in focus when the file opens. */
   focus: number;
 }
 
@@ -72,14 +70,11 @@ export const ROLES: readonly Role[] = ['none', 'parent', 'abortedBy', 'blockedBy
 
 export class WaterfallError extends Error {}
 
-/** Reads a waterfall file's bytes, gzipped or not. A gzipped file starts with gzip's magic number, 1f 8b, and a
- *  waterfall file never does: its first byte is a protobuf field tag, and as a tag 0x1f would have wire type 7, which
- *  protobuf does not use. So the bytes say which it is, whatever the file is named. */
+/** Gunzips when the bytes start 1f 8b, which no waterfall file can: 0x1f would be wire type 7. */
 export async function readWaterfall(bytes: Uint8Array): Promise<Waterfall> {
   return decodeWaterfall(bytes[0] === 0x1f && bytes[1] === 0x8b ? await gunzip(bytes) : bytes);
 }
 
-/** Decompresses gzipped bytes with the browser's own DecompressionStream. */
 async function gunzip(bytes: Uint8Array): Promise<Uint8Array> {
   try {
     const stream = new Blob([bytes as BlobPart]).stream().pipeThrough(new DecompressionStream('gzip'));

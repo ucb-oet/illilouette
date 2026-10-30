@@ -1,5 +1,4 @@
-// Draws the waterfall: the label column, the ruler, and one row per object. How much a row shows follows its size:
-// lettered cells up close, one run per stage in the middle, solid rows far out.
+// Draws the waterfall canvas.
 import { fmt } from '../model/present';
 import { linkKind, type LinkKind, type RowView } from '../model/source';
 import { Controller, RULER, ZOOM_STEP, type Cursor, type Link } from './controller';
@@ -21,8 +20,7 @@ export function detailOf(c: Controller): Detail {
   return 'solid';
 }
 
-/** Whether links show, the selection's included: not once zoomed out a step past where cells lose their letters or
- *  the label column its text, where they would only clutter. Sizes there are whole pixels, so the step is rounded. */
+/** Links hide one zoom step past where letters or label text go; sizes there are whole pixels, hence the rounding. */
 export function linksShown(c: Controller): boolean {
   return c.cellW >= Math.round(LETTER_CELLS / ZOOM_STEP) - 0.5 && c.rowH >= Math.round(LABEL_ROWS / ZOOM_STEP) - 0.5;
 }
@@ -34,7 +32,6 @@ export const DETAIL_NAMES: Record<Detail, string> = {
   solid: 'Solid rows',
 };
 
-/** Whether an object was aborted: ended other than by its type's normal end. */
 const aborted = (r: RowView) => r.end !== null && !r.normalEnd;
 
 function rr(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
@@ -81,8 +78,7 @@ export function drawWaterfall(ctx: CanvasRenderingContext2D, c: Controller, th: 
   const cStart = Math.floor(c.x0);
   const cEnd = Math.ceil(c.x0 + c.visibleCycles);
   const step = niceStep(72 / cw);
-  // A row's tint, the same across the label column and the timeline: selected, related to the selection, or hovered.
-  // The selection's is a little stronger on the label column's darker ground.
+  // The selection's tint is stronger on the label column's darker ground.
   const relatedRows = new Set(c.shownRelated.flatMap((a) => [a.from, a.to]));
   const bandOf = (r: RowView, gutter: boolean): string | null => {
     if (r.index === c.selected) return rgba(th.accent, gutter ? (th.dark ? 0.2 : 0.16) : th.dark ? 0.16 : 0.14);
@@ -107,8 +103,7 @@ export function drawWaterfall(ctx: CanvasRenderingContext2D, c: Controller, th: 
     ctx.fillRect(c.xOf(c.column), RULER, Math.max(1, cw), H - RULER);
   }
 
-  // Links of the kinds shown: the selected row's, and with r those of everything else on screen, fainter while a row
-  // is selected, so that its own stand out.
+  // Others' links fade while a row is selected, so that its own stand out.
   const mine = linksShown(c) ? c.shownRelated : [];
   const others: Link[] = [];
   if (linksShown(c) && c.allLinks) {
@@ -141,9 +136,7 @@ export function drawWaterfall(ctx: CanvasRenderingContext2D, c: Controller, th: 
     ctx.globalAlpha = alpha;
     for (const a of links) {
       if (c.placeOf(a.from) < 0 || c.placeOf(a.to) < 0) continue;
-      // From the edge after the event's cell on the linked object's row, into the mark the link explains: the dot of a
-      // blocking event, on its left, or the cap of an abort, on the edge where the object's row ends. Any other link
-      // ends on that edge too.
+      // From after the event's cell into the mark it explains: a blocking dot, else the row's end edge.
       const edge = c.xOf(a.cycle + 1) - 1;
       const to = a.kind === 'blocked' ? markAt(c, a.cycle, c.rowY(a.to)) : null;
       const x2 = to ? to.x + to.r + 2.5 : edge;
@@ -154,13 +147,11 @@ export function drawWaterfall(ctx: CanvasRenderingContext2D, c: Controller, th: 
   };
   drawLinks(others, c.selected === null ? 1 : 0.4);
   drawLinks(mine, 1);
-  // The selected cell, where the selected row and column cross: lavender corners just outside it, which no cell
-  // border looks like.
   if (c.selected !== null && c.column !== null && c.placeOf(c.selected) >= 0) {
     const w = Math.max(4, cw);
     drawBrackets(ctx, th, c.xOf(c.column) + (cw - w) / 2, c.rowY(c.selected), w, rowH);
   }
-  // Cursors: lines in their groups' colors on the clock edges they mark, in the gaps between cells.
+  // Cursors mark clock edges, in the gaps between cells.
   for (const k of c.cursors) {
     ctx.fillStyle = th.cursors[k.group];
     ctx.fillRect(c.xOf(k.edge) - 0.75, RULER, 1.5, c.plotBottom - RULER);
@@ -182,7 +173,7 @@ export function drawWaterfall(ctx: CanvasRenderingContext2D, c: Controller, th: 
         ctx.fillRect(0, c.rowY(r.index), gx, rowH);
       }
     }
-    // Rows a search matches: a lavender mark at the column's left edge, which stays when rows are too small for text.
+    // Search matches get a mark at the left edge, which stays when rows are too small for text.
     if (c.search) {
       ctx.fillStyle = th.accent;
       for (const r of rows) if (c.search.rows.has(r.index)) ctx.fillRect(0, c.rowY(r.index) + padOf(rowH), 3, Math.max(1, rowH - 2 * padOf(rowH)));
@@ -221,7 +212,6 @@ export function drawWaterfall(ctx: CanvasRenderingContext2D, c: Controller, th: 
     ctx.fillStyle = th.subtext0;
     ctx.fillText(fmt(k), x + 4, RULER / 2);
   }
-  // The ruler is left to time: cursors cross it as lines only, their tags and distances in the strip below.
   for (const k of c.cursors) {
     ctx.fillStyle = th.cursors[k.group];
     ctx.fillRect(c.xOf(k.edge) - 0.75, 0, 1.5, RULER);
@@ -237,8 +227,7 @@ interface TagBox {
   text: string;
 }
 
-/** Where a lane's tags go: each cursor's name and cycle beside its line, right of it as tick labels are, or left of it
- *  when that would run into the next cursor; none when neither side has room. */
+/** Each tag goes right of its line, as tick labels do, or left if that would hit the next cursor; else none. */
 function layoutTags(ctx: CanvasRenderingContext2D, c: Controller, lane: Cursor[]): (TagBox | null)[] {
   const xs = lane.map((k) => c.xOf(k.edge));
   const tags: (TagBox | null)[] = [];
@@ -258,10 +247,7 @@ function layoutTags(ctx: CanvasRenderingContext2D, c: Controller, lane: Cursor[]
   return tags;
 }
 
-/** The cursor strip along the bottom of the waterfall: a lane for each group with cursors, its color as a dot in the
- *  label column, as the cursor panel shows it. A lane holds its group's tags, boxes outlined in its color with its fill and ink, and between neighbors a
- *  line in its color with the distance as plain text in its ink, the line breaking around it. A cursor being named has
- *  its name box over its tag. */
+/** The cursor strip: a lane per group; a tag being named is skipped, as its name box covers it. */
 function drawCursorStrip(ctx: CanvasRenderingContext2D, c: Controller, th: Theme): void {
   const top = c.plotBottom;
   ctx.save();
@@ -327,8 +313,7 @@ function padOf(rowH: number): number {
   return rowH >= 10 ? 2 : rowH >= 4 ? 1 : 0;
 }
 
-/** A dot for an event, edged in the ground color: amber for one that finds its object blocked, and a little smaller
- *  and gray for any other that describes an object without moving or ending it. */
+/** A dot edged in the ground color. */
 function drawDot(ctx: CanvasRenderingContext2D, color: string, ground: string, x: number, y: number, r: number): void {
   ctx.beginPath();
   ctx.arc(x, y, r, 0, Math.PI * 2);
@@ -371,15 +356,15 @@ function barHeight(h: number): number {
   return h >= 8 ? 2 : Math.max(1, Math.round(h / 3));
 }
 
-/** The bar an unfocused type keeps along the bottom of its cells, from x1 to x2: dashed up to hx, where the object is
- *  held, and whole after it, where it moves on. Hatching marks held cycles in the focused type only. */
+/** An unfocused type keeps only this bar along the bottom of its cells, from x1 to x2: dashed up to hx, where the
+ *  object is held, and whole after it. */
 function drawBar(ctx: CanvasRenderingContext2D, color: string, x1: number, x2: number, hx: number, bottom: number, h: number): void {
   ctx.fillStyle = color;
   for (let x = x1; x < hx; x += DASH + DASH_GAP) ctx.fillRect(x, bottom - h, Math.min(DASH, hx - x), h);
   if (x2 > hx) ctx.fillRect(hx, bottom - h, x2 - hx, h);
 }
 
-/** One cell per cycle; held cycles hatched; letters when there is room. An unfocused type keeps only its bars. */
+/** One cell per cycle; held cycles hatched; letters when there is room. */
 function drawCells(ctx: CanvasRenderingContext2D, c: Controller, th: Theme, r: RowView, y: number, letters: boolean): void {
   const cw = c.cellW;
   const pad = padOf(c.rowH);
@@ -420,7 +405,7 @@ function drawCells(ctx: CanvasRenderingContext2D, c: Controller, th: Theme, r: R
   drawMarks(ctx, c, th, r, y, gap);
 }
 
-/** Each stage's cycles merged into one run, held part hatched. An unfocused type keeps only its bars. */
+/** Each stage's cycles merged into one run, held part hatched. */
 function drawRuns(ctx: CanvasRenderingContext2D, c: Controller, th: Theme, r: RowView, y: number): void {
   const pad = padOf(c.rowH);
   const h = c.rowH - 2 * pad;
@@ -461,7 +446,7 @@ function drawRuns(ctx: CanvasRenderingContext2D, c: Controller, th: Theme, r: Ro
   drawMarks(ctx, c, th, r, y, gap);
 }
 
-/** Solid runs; events and caps become thin ticks. An unfocused type keeps only its bars. */
+/** Solid runs; events and caps become thin ticks. */
 function drawSolid(ctx: CanvasRenderingContext2D, c: Controller, th: Theme, r: RowView, y: number): void {
   const inset = c.rowH >= 3 ? 1 : 0;
   const top = y + inset;
@@ -523,15 +508,11 @@ function drawBrackets(ctx: CanvasRenderingContext2D, th: Theme, x: number, y: nu
   ctx.stroke();
 }
 
-/** A link's color, by what it says: red for what aborted an object, as the cap at its end; amber for what blocks it,
- *  as the dot of the event that says so; gray for anything else, such as its parent. */
 function linkColor(th: Theme, kind: LinkKind): string {
   return kind === 'aborted' ? th.killed : kind === 'blocked' ? th.blocked : th.overlay1;
 }
 
-/** A link from (x1, y1) to (x2, y2), bowed to the right, edged in the ground color so that it reads over any stage's
- *  cells. It has no arrowhead: the mark it runs into shows which end is affected, and a link without a mark, such as
- *  from a parent, comes down from the row above. */
+/** Bowed right, edged in the ground color so that it reads over any cell; no arrowhead. */
 function drawLink(ctx: CanvasRenderingContext2D, th: Theme, color: string, x1: number, y1: number, x2: number, y2: number): void {
   const right = Math.max(x1, x2) + Math.max(18, Math.abs(y2 - y1) * 0.35);
   ctx.beginPath();
@@ -546,8 +527,7 @@ function drawLink(ctx: CanvasRenderingContext2D, th: Theme, color: string, x1: n
   ctx.stroke();
 }
 
-/** Each row's type while several show, indented once for each shown ancestor, then its ID and label texts, which
- *  line up across rows; the last label text is the main one. */
+/** Type, indented per shown ancestor, then ID and label texts aligned across rows; the last label is the main one. */
 function drawLabels(ctx: CanvasRenderingContext2D, c: Controller, th: Theme, rows: RowView[]): void {
   const info = c.source.info;
   ctx.font = MONO(labelFontSize(c.rowH));

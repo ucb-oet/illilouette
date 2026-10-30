@@ -44,7 +44,6 @@ export function Waterfall({ c }: { c: Controller }) {
       c.redraw();
     });
 
-    // Pointer: drag to move, click to select, hover for the tooltip.
     let drag: { x: number; y: number; x0: number; y0: number; moved: boolean } | null = null;
     const local = (ev: MouseEvent) => {
       const b = el.getBoundingClientRect();
@@ -83,11 +82,9 @@ export function Waterfall({ c }: { c: Controller }) {
     const onUp = (ev: PointerEvent) => {
       el.classList.remove('grabbing');
       if (drag && !drag.moved) {
-        // A click selects the object under it, and the cycle, as a click in vim puts its cursor on a line and column;
-        // a click on the label column keeps the cycle.
+        // The label column has no cycle, so a click there keeps the selected one; on the strip only the cycle changes.
         const { x, y } = local(ev);
         const cycle = c.cycleAtX(x);
-        // On the cursor strip, the cycle only; the selected object stays.
         if (y >= c.plotBottom) {
           if (cycle !== null) c.selectColumn(cycle);
         } else {
@@ -99,8 +96,7 @@ export function Waterfall({ c }: { c: Controller }) {
       }
       drag = null;
     };
-    // A double click on a label, whose first click selected its object, brings that object's events into view, as f
-    // does; the rows stay, so that the row stays under the pointer.
+    // Like f, but the rows stay, so the row stays under the pointer.
     const onDouble = (ev: MouseEvent) => {
       const { x, y } = local(ev);
       if (x < c.gutterW && y < c.plotBottom && c.selected !== null && c.rowAtY(y) === c.selected) void c.focusSelected(false);
@@ -110,8 +106,7 @@ export function Waterfall({ c }: { c: Controller }) {
       tip.current!.hidden = true;
       c.changed();
     };
-    // Wheel: scroll moves through rows; Shift or a sideways swipe pans time. Ctrl or Cmd, or a pinch, zooms time, and
-    // with Shift, rows: Shift switches the axis, as Q and E zoom rows where q and e zoom time.
+    // A pinch arrives as a wheel event with ctrlKey set.
     const onWheel = (ev: WheelEvent) => {
       ev.preventDefault();
       tip.current!.hidden = true;
@@ -131,7 +126,6 @@ export function Waterfall({ c }: { c: Controller }) {
     el.addEventListener('pointerleave', onLeave);
     el.addEventListener('wheel', onWheel, { passive: false });
 
-    // The splitter between the label column and the timeline.
     const sp = splitter.current!;
     let splitDrag: { x: number; w: number } | null = null;
     const onSplitDown = (ev: PointerEvent) => {
@@ -179,9 +173,7 @@ export function Waterfall({ c }: { c: Controller }) {
   );
 }
 
-/** The box a new cursor's name is typed in, on its lane of the cursor strip at its line, filled with its cycle, beside
- *  the groups' colors: a click on one, or Tab and Shift+Tab, moves the cursor to that group. Enter or Esc keeps the
- *  name, as Esc leaves vim's insert mode; so does clicking elsewhere. */
+/** A new cursor's name box, on its lane, with the groups' swatches. */
 function CursorName({ c }: { c: Controller }) {
   useController(c);
   const box = useRef<HTMLInputElement>(null);
@@ -200,7 +192,7 @@ function CursorName({ c }: { c: Controller }) {
     c.nameCursor(edge, box.current?.value ?? '');
   };
   const choose = (g: number) => c.setCursorGroup(edge, (g + CURSOR_GROUPS) % CURSOR_GROUPS);
-  // The box and the colors' width, to keep them on screen.
+  // Mirrors .cursor-name's CSS widths.
   const width = 140 + 8 + CURSOR_GROUPS * 16 + 8;
   return (
     <div
@@ -268,7 +260,7 @@ function showTip(c: Controller, tip: HTMLDivElement, rowIndex: number | null, cy
   tip.replaceChildren();
   const label = r.label.filter(Boolean).join('  ');
   if (cycle === null) {
-    // Over the label column: the object, its whole label, which the column may cut or leave out, and how it went.
+    // Over the label column: the whole label, which the column may cut or leave out.
     tip.append(div('main', objectName(type.name, r.id)));
     if (label) tip.append(div('label', label));
     tip.append(div('note', outcomeText(r, c.source.info.lastCycle)));
@@ -295,7 +287,6 @@ function showTip(c: Controller, tip: HTMLDivElement, rowIndex: number | null, cy
   for (const e of r.events) {
     if (e.cycle !== cycle) continue;
     const line = div('event', `${shortName(e.name, type.name)}: ${effectText(r, e, type.stages)}`);
-    // Each field's name and value wrap as one.
     for (const f of e.fields) {
       const other = f.row === null ? undefined : c.row(f.row);
       line.append(' · ', div('pair', fieldText(f, other, e.cycle, other && c.source.info.types[other.type].stages)));
@@ -305,7 +296,6 @@ function showTip(c: Controller, tip: HTMLDivElement, rowIndex: number | null, cy
   place(c, tip, x, y);
 }
 
-/** Shows the tooltip below and right of the pointer, or on whichever side keeps it inside the waterfall. */
 function place(c: Controller, tip: HTMLDivElement, x: number, y: number): void {
   tip.hidden = false;
   const tw = tip.offsetWidth;

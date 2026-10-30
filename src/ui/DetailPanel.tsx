@@ -1,4 +1,3 @@
-// The detail panel: the selected object, or with nothing selected, a summary of the file.
 import { Fragment } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import { effectText, endText, fieldValue, fmt, objectName, outcomeText, shortName, timeByStage } from '../model/present';
@@ -8,7 +7,7 @@ import { Controller, useController } from './controller';
 
 interface Selected {
   row: RowView;
-  /** Rows its fields name, by row index. */
+  /** Rows linked to or from it, by index. */
   others: Map<number, RowView>;
   referrers: Referrer[];
 }
@@ -68,7 +67,6 @@ function Summary({ c }: { c: Controller }) {
       {summary.map((t, ti) => (
         <section key={t.name}>
           <h3>{t.name}</h3>
-          {/* The legend of the type's stages, which share their colors with every other type's. */}
           <div class="stages legend">
             {c.source.info.types[ti].stages.map((s, k) => (
               <span key={s}>
@@ -119,7 +117,7 @@ function Selection({ c, s }: { c: Controller; s: Selected }) {
   };
   const copy = (text: string) => void navigator.clipboard?.writeText(text).catch(() => undefined);
 
-  // Each linked object, said by what it is to this one, or this one to it; by the event and field for any other link.
+  // Each link, named by role, or else by event and field.
   const links: { label: string; row: RowView }[] = [];
   for (const e of row.events) {
     for (const f of e.fields) {
@@ -208,7 +206,6 @@ function Selection({ c, s }: { c: Controller; s: Selected }) {
                   </span>
                   <span class="effect">{effectText(row, e, type.stages)}</span>
                   {fields.length > 0 && (
-                    // One row per field, as the object's own fields are listed.
                     <dl class="fields">
                       {fields.map((f, j) => (
                         <Fragment key={j}>

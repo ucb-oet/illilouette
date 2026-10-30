@@ -1,5 +1,4 @@
-// The viewer's state and navigation, shared by the canvas, which redraws from it, and the Preact panels, which
-// subscribe to it. Rows come from the source in chunks and are cached here.
+// The viewer's state and navigation; rows load from the source in chunks and are cached here.
 import { useEffect, useState } from 'preact/hooks';
 import { fmt, objectName, segmentAt } from '../model/present';
 import { parseQuery, type Match, type TypeWords } from '../model/search';
@@ -18,15 +17,12 @@ export interface Link {
   cycle: number;
   kind: LinkKind;
 }
-/** The factor one press of a zoom key zooms by. */
 export const ZOOM_STEP = 1.25;
-/** Cells this wide and up, drawn one by one, take whole pixels, so that their edges are crisp; narrower ones, drawn
- *  as runs, zoom smoothly. Rows always take whole pixels. */
+/** From this width up, cells are drawn one by one, so they snap to whole pixels for crisp edges. */
 export const WHOLE_CELLS = 8;
 
-/** A size after a zoom by a factor, in whole pixels from `whole` up. A key press moves the drawn size at least a pixel;
- *  the wheel and pinch keep an exact level, so that their small turns add up. A drawn size set other than by zooming,
- *  as when a file opens, starts the exact level afresh. */
+/** A size after a zoom, in whole pixels from `whole` up. A key moves the drawn size at least a pixel; the wheel and
+ *  pinch keep an exact level so small turns add up, restarting it when the size was set other than by zooming. */
 function zoomSize(drawn: number, exact: number, factor: number, key: boolean, min: number, max: number, whole: number) {
   const snap = (v: number) => (v >= whole ? Math.round(v) : v);
   const clampTo = (v: number) => Math.min(max, Math.max(min, v));
@@ -46,11 +42,11 @@ function zoomSize(drawn: number, exact: number, factor: number, key: boolean, mi
 export interface Cursor {
   edge: number;
   name: string;
-  /** Its group, one of CURSOR_GROUPS, each with its own color: the cursor's distances are to its group's neighbors. */
+  /** One of CURSOR_GROUPS, each with its own color; a cursor's distances are to its group's neighbors. */
   group: number;
 }
 
-/** How many groups cursors come in: one for each color that stays distinct from the others. */
+/** One group per color that stays distinct from the others. */
 export const CURSOR_GROUPS = 6;
 
 /** The height of a group's lane in the cursor strip along the bottom of the waterfall, and the strip's padding. */
@@ -83,23 +79,18 @@ export class Controller {
   height = 1;
   hover: Hover | null = null;
   selected: number | null = null;
-  /** The selected cycle, as vim's cursor column is to its current line. */
+  /** The selected cycle. */
   column: number | null = null;
   hiddenTypes = new Set<number>();
-  /** Whether aborted objects are hidden: those that ended other than by their type's normal end. */
   hideAborted = false;
-  /** Whether the view panel is open. */
   viewOpen = false;
-  /** Keys read but waiting for the rest of their command, such as a count or the g of gg, shown in the status bar. */
+  /** Keys waiting for the rest of their command, such as a count or the g of gg. */
   keysPending = '';
-  /** The type drawn in full; every other type keeps only its bars. A file opens with the type its design's view names
-   *  in focus, or its first. */
+  /** The type drawn in full; every other type keeps only its bars. */
   focusType: number;
-  /** Links for the selected row, of every kind: from each object it names to it, and from it to each row that names
-   *  it. */
+  /** Links for the selected row, of every kind. */
   related: Link[] = [];
-  /** The kinds of link shown, for the selected row and for everything on screen alike. Links of other kinds, such as
-   *  from parents, which the rows' order and indent already show, start hidden. */
+  /** The kinds of link shown. */
   linkKinds = new Set<LinkKind>(['aborted', 'blocked']);
   /** Whether links show for everything on screen, not only the selected row. */
   allLinks = false;
@@ -109,27 +100,22 @@ export class Controller {
   naming: number | null = null;
   /** The group a new cursor goes in: the one last chosen. */
   cursorGroup = 0;
-  /** Whether the cursor panel is open. */
   cursorsOpen = false;
-  /** Whether the list of keys is open. */
   helpOpen = false;
-  /** The search in the jump box: its text, what is wrong with it if anything, its matches in row order, the rows they
-   *  are on, and how many matching objects are hidden. Null while the box holds no search. */
+  /** The jump box's search: matches are in row order, and `skipped` counts the matching objects hidden. */
   search: { text: string; error: string | null; matches: Match[]; rows: Set<number>; skipped: number } | null = null;
   /** The file's names for searches, once read. */
   words: TypeWords[] | null = null;
-  /** A short note for the status bar, such as why a jump did nothing; it stays until the next key, click, or wheel. */
+  /** A short note for the status bar, such as why a jump did nothing. */
   notice = '';
 
   /** The rows on screen, in order, while a type is hidden; null while every row shows. */
   private shown: Uint32Array | null = null;
   /** Each row's place among the rows on screen, or -1 for a row of a hidden type; null while every row shows. */
   private place: Int32Array | null = null;
-  /** Counts type toggles, so that a toggle whose rows arrive after a later one's is dropped. */
+  /** Bumped per type toggle, timeline move, and search, so that a stale async result is dropped. */
   private toggles = 0;
-  /** Counts moves from the timeline bar, likewise. */
   private moves = 0;
-  /** Counts searches, likewise. */
   private searches = 0;
 
   private markSized!: () => void;
@@ -164,7 +150,6 @@ export class Controller {
   get shownCount(): number {
     return this.shown ? this.shown.length : this.source.info.rowCount;
   }
-  /** The row at a place among the rows on screen. */
   rowAtPlace(p: number): number {
     return this.shown ? this.shown[p] : p;
   }
@@ -196,7 +181,6 @@ export class Controller {
   get cursorLanes(): number[] {
     return [...new Set(this.cursors.map((k) => k.group))].sort((a, b) => a - b);
   }
-  /** The cursor strip's height: a lane for each group with cursors, and none without cursors. */
   get stripH(): number {
     return this.cursors.length ? this.cursorLanes.length * LANE + STRIP_PAD : 0;
   }
@@ -208,7 +192,6 @@ export class Controller {
   get plotBottom(): number {
     return this.height - this.stripH;
   }
-  /** The height the rows have, between the ruler and the cursor strip. */
   get plotH(): number {
     return Math.max(1, this.plotBottom - RULER);
   }
@@ -246,7 +229,6 @@ export class Controller {
     this.redraw();
   }
 
-  // ---------------------------------------------------------------- notification
   /** Shows a note in the status bar, in place of the hover readout. */
   say(text: string): void {
     this.notice = text;
@@ -262,7 +244,6 @@ export class Controller {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
   }
-  /** Redraws the canvas and tells the panels that state changed. */
   changed(): void {
     // The row and cycle under the pointer move with the view, as when a key pans it.
     if (this.hover) {
@@ -273,7 +254,6 @@ export class Controller {
     for (const l of this.listeners) l();
   }
 
-  // ---------------------------------------------------------------- navigation
   clamp(): void {
     const { firstCycle, lastCycle } = this.source.info;
     const visible = this.visibleCycles;
@@ -281,7 +261,7 @@ export class Controller {
     this.y0 = Math.min(Math.max(0, this.y0), Math.max(0, this.shownCount * this.rowH - this.plotH + this.rowH * 2));
   }
 
-  /** Zooms time around a point on the timeline, by a factor on pixels per cycle; `key` for a key press. */
+  /** Zooms time around a point on the timeline; `key` for a key press. */
   zoomTime(x: number, factor: number, key = false): void {
     const px = Math.max(0, x - this.gutterW);
     const cycle = this.x0 + px / this.cellW;
@@ -291,8 +271,7 @@ export class Controller {
     this.changed();
   }
 
-  /** Zooms rows, keeping in place the row being looked at: the selected row while it is on screen, else the row
-   *  under the pointer, else the middle of the view; `key` for a key press. */
+  /** Zooms rows, keeping the row being looked at in place; `key` for a key press. */
   zoomRows(factor: number, pointerY: number | null, key = false): void {
     const { drawn: next, exact } = zoomSize(this.rowH, this.rowLevel, factor, key, 1, 40, 1);
     this.rowLevel = exact;
@@ -361,16 +340,12 @@ export class Controller {
     this.changed();
   }
 
-  /** Moves the selected cycle by cycles. With none selected, selects the selected object's first event's, or with no
-   *  object selected, the middle of the view's. */
   async moveColumn(delta: number): Promise<void> {
     if (this.column !== null) return this.selectColumn(this.column + delta, true);
     const row = this.selected === null ? null : await this.rowAsync(this.selected);
     this.selectColumn(row ? (row.events[0]?.cycle ?? row.start) : this.x0 + this.visibleCycles / 2, true);
   }
 
-  /** Moves the selection by rows on screen, stopping at the first and last; with nothing selected, selects the top
-   *  row. */
   moveSelection(delta: number): void {
     if (this.shownCount === 0) return;
     const p = this.selected === null ? -1 : this.placeOf(this.selected);
@@ -378,16 +353,12 @@ export class Controller {
     if (next !== p) this.select(this.rowAtPlace(next), true);
   }
 
-  /** A row's depth among the rows shown: how many of its ancestors' types are shown, as its type name's indent is. */
+  /** A row's depth among the rows shown, as its type name's indent shows it. */
   private depthOf(r: RowView): number {
     return r.ancestorTypes.filter((t) => !this.hiddenTypes.has(t)).length;
   }
 
-  /** Moves the selection by paragraphs, as vim's } and { do. A paragraph is a row and the rows under it, so } goes past
-   *  the selected row's children to the next row as shallow or shallower, and { back to the previous one. A row with
-   *  nothing under it is inside its parent's paragraph instead: } goes past the rest of its parent's rows, and { back
-   *  to the parent. In a trace without parents, every row is a paragraph. With nothing selected, selects the top row on
-   *  screen. */
+  /** vim's } and {: a paragraph is a row and the rows under it; a row with none under it is in its parent's. */
   async moveParagraph(step: 1 | -1, times = 1): Promise<void> {
     if (this.selected === null || this.placeOf(this.selected) < 0) return this.moveSelection(step);
     const start = this.selected;
@@ -407,14 +378,11 @@ export class Controller {
     if (p !== this.placeOf(start)) this.select(this.rowAtPlace(p), true);
   }
 
-  /** Whether a row has anything at a cycle: a cell, or an event. */
   private hasAt(r: RowView, cycle: number): boolean {
     return segmentAt(r, cycle) !== null || r.events.some((e) => e.cycle === cycle);
   }
 
-  /** Moves the selection down or up the selected cycle's column, to the next row with anything at that cycle, keeping
-   *  the cycle. With nothing selected, J starts from the top of the rows shown, so that it finds the first such row,
-   *  and K from the bottom. */
+  /** J and K: the next row with anything at the selected cycle; from the top or bottom with nothing selected. */
   async moveInColumn(step: 1 | -1, times = 1): Promise<void> {
     const cycle = this.column;
     if (cycle === null) {
@@ -439,15 +407,14 @@ export class Controller {
     this.select(this.rowAtPlace(p), true);
   }
 
-  /** Selects the first or last row shown, as vim's gg and G go to the first and last line, and brings it into view as
-   *  f does. */
+  /** gg and G: the first or last row shown, brought into view as f does. */
   async selectEdgeRow(edge: 'first' | 'last'): Promise<void> {
     if (this.shownCount === 0) return;
     this.select(this.rowAtPlace(edge === 'first' ? 0 : this.shownCount - 1));
     await this.focusSelected();
   }
 
-  /** Selects the top, middle, or bottom row on screen, as vim's H, M, and L do, without moving the view. */
+  /** H, M, and L: the top, middle, or bottom row on screen, without moving the view. */
   selectScreenRow(where: 'top' | 'middle' | 'bottom'): void {
     if (this.shownCount === 0) return;
     const last = this.shownCount - 1;
@@ -457,8 +424,7 @@ export class Controller {
     this.select(this.rowAtPlace(p));
   }
 
-  /** Scrolls rows so that the selected row sits in the middle, at the top, or at the bottom of the screen, as vim's zz,
-   *  zt, and zb do; time stays where it is. */
+  /** Puts the selected row in the middle, top, or bottom of the screen; time stays. */
   scrollSelectedTo(where: 'middle' | 'top' | 'bottom'): void {
     if (this.selected === null || this.placeOf(this.selected) < 0) return;
     const y = this.placeOf(this.selected) * this.rowH;
@@ -468,8 +434,7 @@ export class Controller {
     this.changed();
   }
 
-  /** Moves the selected cycle to the selected object's next or previous event, as many times as asked, panning just
-   *  enough to keep it on screen. Without a selected cycle, ] starts before the first event and [ after the last. */
+  /** ] and [: the next or previous event; with no cycle selected, from before the first or after the last. */
   async moveEvent(step: 1 | -1, times = 1): Promise<void> {
     if (this.selected === null) {
       this.say('Select an object first: ] and [ go through its events.');
@@ -499,8 +464,7 @@ export class Controller {
     this.clamp();
   }
 
-  /** Focus: the selected row in view, with its first event a third of the way in from the left. With `rows` false, as
-   *  for a double click on its label, only time moves, since the row is on screen already. */
+  /** f: the selected row in view, its first event a third in from the left; with `rows` false, only time moves. */
   async focusSelected(rows = true): Promise<void> {
     if (this.selected === null) return;
     const row = await this.rowAsync(this.selected);
@@ -517,9 +481,7 @@ export class Controller {
     this.changed();
   }
 
-  /** Selects the cycle of the selected object's first or last event, as vim's 0 and $ go to the start and end of the
-   *  line, and pans time to put it a third of the way in from the left, or from the right; rows move only to bring
-   *  its row into view. */
+  /** 0 and $: selects the first or last event's cycle, a third in from that side; rows move only to reveal it. */
   async toSelectedEdge(edge: 'start' | 'end'): Promise<void> {
     if (this.selected === null) return;
     const i = this.selected;
@@ -538,8 +500,7 @@ export class Controller {
     this.changed();
   }
 
-  /** Moves the view to a cycle picked on the timeline bar: time centered on it, and rows scrolled so that the first
-   *  object alive in the view's cycles, or starting in them, is near the top. */
+  /** Centers time on a cycle picked on the timeline bar, with the first object alive in view near the top. */
   async moveToCycle(cycle: number): Promise<void> {
     this.x0 = cycle - this.visibleCycles / 2;
     this.clamp();
@@ -578,7 +539,7 @@ export class Controller {
     return true;
   }
 
-  /** Shows or hides a type's rows, closing up the rows on screen around them. */
+  /** Shows or hides a type's rows. */
   async toggleType(t: number): Promise<void> {
     if (t >= this.source.info.types.length) return;
     await this.refilter(() => {
@@ -589,17 +550,14 @@ export class Controller {
     });
   }
 
-  /** Shows or hides aborted objects, closing up rows as hiding a type does. */
   async toggleAborted(): Promise<void> {
     await this.refilter(() => (this.hideAborted = !this.hideAborted));
   }
 
-  /** What is hidden. */
   get filter(): RowFilter {
     return { types: this.hiddenTypes, aborted: this.hideAborted };
   }
 
-  /** How many objects are hidden, by type or by how they ended. */
   get hiddenCount(): number {
     return this.source.info.rowCount - this.shownCount;
   }
@@ -610,8 +568,7 @@ export class Controller {
     this.changed();
   }
 
-  /** Changes what is hidden and closes up the rows on screen around it. The row being looked at stays in place: the
-   *  selection while it is on screen and stays shown, else the top row, or the first shown row after it. */
+  /** Changes what is hidden, keeping the row being looked at in place: the selection if on screen, else the top row. */
   private async refilter(change: () => void): Promise<void> {
     const sel = this.selected;
     const selOnScreen = sel !== null && this.placeOf(sel) >= 0 && this.rowY(sel) >= RULER && this.rowY(sel) < this.plotBottom;
@@ -639,7 +596,6 @@ export class Controller {
     if (this.search && !this.search.error) await this.setSearch(this.search.text);
   }
 
-  /** Reads the file's names for searches, once. */
   async loadWords(): Promise<TypeWords[]> {
     if (!this.words) {
       this.words = await this.source.words();
@@ -670,9 +626,7 @@ export class Controller {
     return s ? s.matches.findIndex((m) => m.row === this.selected && m.cycle === this.column) : -1;
   }
 
-  /** Goes to the next or previous match down or up the rows, as vim's n and N go through a buffer: from the selected
-   *  object, or else from the top of the rows on screen. Past the last, it goes round to the first. Says why when there
-   *  is nowhere to go, and returns whether it went. */
+  /** n and N: the next or previous match by row, wrapping; says why when there is none; returns whether it went. */
   async nextMatch(step: 1 | -1): Promise<boolean> {
     const s = this.search;
     if (!s) {
@@ -687,8 +641,7 @@ export class Controller {
       this.say(`Nothing matches ${s.text}${s.skipped ? `, apart from ${s.skipped} hidden objects` : ''}.`);
       return false;
     }
-    // Where the view is among the rows shown; with nothing selected, just above the top row on screen, so that n finds
-    // a match on it.
+    // With nothing selected, just above the top row on screen, so that n finds a match on it.
     const sel = this.selected === null ? -1 : this.placeOf(this.selected);
     const here = sel >= 0 ? sel : Math.floor(this.y0 / this.rowH) - 0.5;
     let k = -1;
@@ -708,8 +661,7 @@ export class Controller {
     return true;
   }
 
-  /** Puts a cursor on an edge, by default the one where the selected cycle starts, as vim's i inserts before the
-   *  character under its cursor, and opens its name for typing. Does nothing where a cursor is already. */
+  /** i: a cursor on the selected cycle's start edge, its name open for typing; nothing where a cursor is already. */
   insertCursor(at: number | null = this.column): void {
     if (at === null) {
       this.say('Select a cycle first: click one, or press 0 or $ on a selected object.');
@@ -730,8 +682,7 @@ export class Controller {
     this.changed();
   }
 
-  /** Names a cursor, which ends typing its name. A name left empty, or as the cycle it was filled with, shows as the
-   *  cycle. */
+  /** Ends typing a cursor's name; a name left empty, or as the cycle it was filled with, shows as the cycle. */
   nameCursor(edge: number, name: string): void {
     const text = name.trim();
     const plain = text === fmt(edge) || text === String(edge) ? '' : text;
@@ -740,9 +691,7 @@ export class Controller {
     this.changed();
   }
 
-  /** Puts a cursor at the selected object's front or tail, as vim's I and A insert at the start and end of the line:
-   *  on the edge where its first event's cycle starts, or on the edge after its last event's cycle. Selects that
-   *  event's cycle, as 0 and $ do. */
+  /** I and A: a cursor before the first event or after the last, selecting that cycle as 0 and $ do. */
   async insertAtSelectedEdge(end: 'start' | 'end'): Promise<void> {
     if (this.selected === null) {
       this.say('Select an object first.');
@@ -752,15 +701,13 @@ export class Controller {
     if (this.column !== null) this.insertCursor(end === 'start' ? this.column : this.column + 1);
   }
 
-  /** Removes the cursor on the selected cycle, as vim's x deletes the character under its cursor: the one on the
-   *  edge where the cycle starts, or else the one on the edge after it, where A puts one. */
+  /** x: removes the cursor on the selected cycle's start edge, else on its end edge, where A puts one. */
   deleteCursor(): void {
     const col = this.column;
     if (col === null) return;
     this.removeCursor(this.cursors.some((k) => k.edge === col) ? col : col + 1);
   }
 
-  /** Removes the cursor on an edge, if there is one. */
   removeCursor(edge: number): void {
     const kept = this.cursors.filter((k) => k.edge !== edge);
     if (kept.length === this.cursors.length) return;
@@ -769,14 +716,13 @@ export class Controller {
     this.changed();
   }
 
-  /** Pans time to put a cursor in the middle of the view, and selects the cycle its edge starts. */
   panToCursor(edge: number): void {
     this.x0 = edge - this.visibleCycles / 2;
     this.clamp();
     this.selectColumn(edge);
   }
 
-  /** Opens or closes the cursor panel; the view panel closes as it opens, as both hang from the header. */
+  /** The view panel closes as this one opens, as both hang from the header. */
   toggleCursors(): void {
     this.cursorsOpen = !this.cursorsOpen;
     if (this.cursorsOpen) this.viewOpen = false;
@@ -798,13 +744,11 @@ export class Controller {
     return null;
   }
 
-  /** Puts a shown type in focus. */
   setFocus(t: number): void {
     this.focusType = t;
     this.changed();
   }
 
-  /** Moves the focus to the next or previous shown type, in the view's order. */
   cycleFocus(step: 1 | -1): void {
     const next = this.nextShownType(this.focusType, step);
     if (next === null || next === this.focusType) return;
@@ -822,14 +766,12 @@ export class Controller {
     this.changed();
   }
 
-  /** The selected row's links of the kinds shown. */
   get shownRelated(): Link[] {
     return this.related.filter((a) => this.linkKinds.has(a.kind));
   }
 
-  /** The view a file opens with: its start, up close enough for lettered cells, with rows shrunk toward 40 in
-   *  view but kept tall enough for letters, and the label column wide enough for every label, up to 40% of the
-   *  waterfall. */
+  /** The view a file opens with: cells and rows big enough for letters, rows toward 40 in view, and the label column
+   *  wide enough for every label, up to 40% of the width. */
   async home(): Promise<void> {
     await this.sized;
     const top = this.rowAtPlace(0);

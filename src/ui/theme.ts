@@ -1,4 +1,4 @@
-// The canvas's colors, read from the page's CSS tokens (Catppuccin Latte and Mocha), and the viewer's theme choice.
+// The canvas's colors, read from the page's CSS tokens.
 import { CURSOR_GROUPS } from './controller';
 
 export interface Theme {
@@ -23,8 +23,7 @@ export interface Theme {
   accent: string;
   /** Cursor groups' colors, in group order. */
   cursors: string[];
-  /** Cursor tags' fills and texts, in group order: in Latte a light tint and a deep shade of each color; in Mocha the
-   *  strip's ground and the color. */
+  /** Cursor tags' fills and texts, in group order. */
   cursorFills: string[];
   cursorInks: string[];
   /** Stage colors, in stage order; a type's stage i takes color i. */
@@ -94,8 +93,7 @@ function hatchPattern(ctx: CanvasRenderingContext2D, color: string, wash: number
   return ctx.createPattern(tile, 'repeat')!;
 }
 
-/** Calls back whenever the colors may have changed: the palette toggle, the system's light or dark setting, or the
- *  fonts finishing loading. Returns a function that stops listening. */
+/** Calls back when the colors may have changed or the fonts finish loading; returns a function that stops listening. */
 export function onThemeChange(callback: () => void): () => void {
   const media = matchMedia('(prefers-color-scheme: dark)');
   media.addEventListener('change', callback);
@@ -112,7 +110,6 @@ export function onThemeChange(callback: () => void): () => void {
 
 export type ThemeChoice = 'system' | 'light' | 'dark';
 
-/** Whether a choice comes out dark: the system's setting until a choice is made. */
 export function isDark(choice: ThemeChoice): boolean {
   return choice === 'dark' || (choice === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
 }

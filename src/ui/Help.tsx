@@ -2,8 +2,6 @@
 import { useEffect, useRef } from 'preact/hooks';
 import { Controller, useController } from './controller';
 
-/** Each group's inputs, as key caps, and what they do, with example texts where the group takes text. Letters are as
- *  typed: a capital takes Shift. */
 const GROUPS: { name: string; keys: [string[], string][]; examples?: [string, string][] }[] = [
   {
     name: 'Move',

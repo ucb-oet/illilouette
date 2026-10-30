@@ -1,7 +1,4 @@
-// Smoke tests over the waterfall files Chipyard's reader writes: test/fixtures links to Chipyard's
-// sims/verilator/output, and every .waterfall file under it is read and run through each feature, drawing included.
-// They check that nothing breaks on what the reader writes now, and hold the file to what the viewer relies on; exact
-// values are checked by the tests on files built in code.
+// Smoke tests over every .waterfall under test/fixtures, a link to Chipyard's sims/verilator/output.
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -109,7 +106,6 @@ for (const file of files) {
       const shown = () => expect(c.hiddenCount).toBe(source.info.rowCount - c.shownCount);
       draw();
 
-      // Every type in focus, and hidden, in turn; aborted objects hidden.
       for (let t = 0; t < source.info.types.length; t++) {
         c.cycleFocus(1);
         await c.toggleType(t);
@@ -123,7 +119,6 @@ for (const file of files) {
       await c.toggleAborted();
       expect(c.hiddenCount).toBe(0);
 
-      // Moves: rows, paragraphs, a busy cycle's column, an object's events and ends, cursors.
       await c.selectEdgeRow('last');
       await c.selectEdgeRow('first');
       c.moveSelection(5);
@@ -147,15 +142,12 @@ for (const file of files) {
       c.deleteCursor();
       c.scrollSelectedTo('middle');
       c.selectScreenRow('bottom');
-      // Links of every kind, for everything on screen.
       c.toggleLinks();
       c.toggleLinkKind('other');
       draw();
       c.toggleLinkKind('other');
       c.toggleLinks();
 
-      // Searches built from the file's own words: a row's label, a field with few values, an event; each finds
-      // something, and every match is on a row shown.
       const words = await source.words();
       const labelled = (await source.rows(0, Math.min(source.info.rowCount, 2000))).find((r) => r.label.some(Boolean));
       const queries = [
@@ -177,7 +169,6 @@ for (const file of files) {
         draw();
       }
 
-      // Every level of detail, zooming out a step at a time, and back to a cycle.
       for (let k = 0; k < 30; k++) {
         c.zoomTime(c.gutterW + c.plotW / 2, 1 / ZOOM_STEP, true);
         if (k % 3 === 0) c.zoomRows(1 / ZOOM_STEP, null, true);

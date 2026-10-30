@@ -1,5 +1,3 @@
-// The header: the file's name and range, the jump box, which also searches, the type and link toggles, the palette,
-// and opening another file.
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { fmt } from '../model/present';
 import { suggest, type Suggestion } from '../model/search';
@@ -19,7 +17,6 @@ export function Header({ c, onOpen }: { c: Controller; onOpen: (file: File) => P
   const list = useRef<HTMLUListElement>(null);
   const viewButton = useRef<HTMLDivElement>(null);
   const cursorButton = useRef<HTMLDivElement>(null);
-  // Keep the picked completion in view as the arrow keys move past the list's visible part.
   useEffect(() => {
     if (picked >= 0) list.current?.children[picked]?.scrollIntoView({ block: 'nearest' });
   }, [picked]);
@@ -49,7 +46,7 @@ export function Header({ c, onOpen }: { c: Controller; onOpen: (file: File) => P
       if (c.search?.text !== q) await c.setSearch(q);
       landed = await c.nextMatch(back ? -1 : 1);
     }
-    // Once a jump lands, keys move the view again, n and N among them; one that found nothing leaves the box to correct.
+    // A miss keeps focus so the query can be corrected.
     if (landed) box.current?.blur();
   };
   const onKeyDown = (ev: KeyboardEvent) => {
@@ -146,7 +143,6 @@ export function Header({ c, onOpen }: { c: Controller; onOpen: (file: File) => P
             onClick={() => void c.toggleType(i)}
           >
             <kbd>z{i + 1}</kbd>
-            {/* Filled with the bar beneath in focus; otherwise the bar alone, as the type's cells are drawn. */}
             <i class={i === c.focusType ? 'mark filled' : 'mark'} aria-hidden="true" />
             {t.name}
           </button>
@@ -179,7 +175,6 @@ export function Header({ c, onOpen }: { c: Controller; onOpen: (file: File) => P
             onClick={() => c.toggleView()}
           >
             <Sliders />
-            {/* While anything is hidden, so that a filter is not forgotten. */}
             {c.hiddenCount > 0 && <i class="dot" />}
           </button>
           <ViewPanel c={c} anchor={viewButton} />
@@ -205,7 +200,6 @@ export function Header({ c, onOpen }: { c: Controller; onOpen: (file: File) => P
   );
 }
 
-/** Two cursors and the distance between them. */
 function Cursors() {
   return (
     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">

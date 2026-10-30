@@ -1,11 +1,9 @@
-// The label column's layout, shared by the renderer and by the controller, which opens a file with the column as
-// wide as its labels.
+// The label column's layout, shared by the renderer and the controller.
 import type { Info } from '../model/source';
 
 /** Space at the column's edges, and between its columns. */
 export const EDGE = 10;
 export const GAP = 14;
-/** Space after the type column. */
 const TYPE_GAP = 12;
 /** Characters a type name is indented by for each shown ancestor. */
 const INDENT = 2;
