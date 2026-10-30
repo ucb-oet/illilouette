@@ -34,7 +34,7 @@ export interface Theme {
   hatch: CanvasPattern[];
 }
 
-const STAGE_COLORS = 8;
+const STAGE_COLORS = 9;
 
 /** A stage's color, as CSS. */
 export function stageColor(stage: number): string {

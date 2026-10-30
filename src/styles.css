@@ -7,12 +7,13 @@
   --subtext0: #6c6f85; --subtext1: #5c5f77; --text: #4c4f69;
   --sapphire: #209fb5; --peach: #fe640b; --mauve: #8839ef; --green: #40a02b;
   --pink: #ea76cb; --teal: #179299; --yellow: #df8e1d; --blue: #1e66f5;
-  --red: #d20f39; --lavender: #7287fd;
+  --red: #d20f39; --lavender: #7287fd; --flamingo: #dd7878;
   --wash: 0.30;
 
   /* Roles. The first four stage colors were checked for color-blind separation between neighbors in both themes. */
   --stage-0: var(--sapphire); --stage-1: var(--peach); --stage-2: var(--mauve); --stage-3: var(--green);
   --stage-4: var(--pink); --stage-5: var(--teal); --stage-6: var(--yellow); --stage-7: var(--blue);
+  --stage-8: var(--flamingo);
   --killed: var(--red);
   --blocked: var(--yellow);
   --event: var(--overlay1);
@@ -42,7 +43,7 @@
     --subtext0: #a6adc8; --subtext1: #bac2de; --text: #cdd6f4;
     --sapphire: #74c7ec; --peach: #fab387; --mauve: #cba6f7; --green: #a6e3a1;
     --pink: #f5c2e7; --teal: #94e2d5; --yellow: #f9e2af; --blue: #89b4fa;
-    --red: #f38ba8; --lavender: #b4befe;
+    --red: #f38ba8; --lavender: #b4befe; --flamingo: #f2cdcd;
     --wash: 0.34;
     --cursor-0: #89dceb; --cursor-1: var(--red); --cursor-2: var(--yellow); --cursor-3: var(--pink);
     --cursor-4: var(--blue); --cursor-5: var(--green);
@@ -60,7 +61,7 @@
   --subtext0: #a6adc8; --subtext1: #bac2de; --text: #cdd6f4;
   --sapphire: #74c7ec; --peach: #fab387; --mauve: #cba6f7; --green: #a6e3a1;
   --pink: #f5c2e7; --teal: #94e2d5; --yellow: #f9e2af; --blue: #89b4fa;
-  --red: #f38ba8; --lavender: #b4befe;
+  --red: #f38ba8; --lavender: #b4befe; --flamingo: #f2cdcd;
   --wash: 0.34;
   --cursor-0: #89dceb; --cursor-1: var(--red); --cursor-2: var(--yellow); --cursor-3: var(--pink);
   --cursor-4: var(--blue); --cursor-5: var(--green);
