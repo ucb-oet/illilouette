@@ -2,7 +2,7 @@
 // comments are in the schema.
 import { Reader, Wire } from './pb';
 
-export const FORMAT_VERSION = 1;
+const FORMAT_VERSION = 1;
 
 export interface Waterfall {
   version: number;

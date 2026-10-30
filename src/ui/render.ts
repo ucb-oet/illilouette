@@ -6,7 +6,7 @@ import { Controller, RULER, ZOOM_STEP, type Cursor, type Link } from './controll
 import { EDGE, GAP, labelColumns, labelFontSize } from './labels';
 import { MONO, rgba, type Theme } from './theme';
 
-export type Detail = 'letters' | 'cells' | 'runs' | 'solid';
+type Detail = 'letters' | 'cells' | 'runs' | 'solid';
 
 /** Cells take letters from this many pixels per cycle, and rows this tall. */
 const LETTER_CELLS = 14;

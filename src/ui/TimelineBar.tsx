@@ -31,7 +31,6 @@ export function TimelineBar({ c }: { c: Controller }) {
       ctx.fillRect(PAD, mid - 1, w, 2);
       ctx.font = MONO(11);
       ctx.textBaseline = 'middle';
-      ctx.fillStyle = th.subtext0;
       ctx.textAlign = 'left';
       const left = fmt(firstCycle);
       const right = fmt(lastCycle);

@@ -152,7 +152,7 @@ export function suggest(text: string, words: TypeWords[]): Suggestion[] {
 
   if (parts.length === 1 && eq < 0) {
     // A type, when the text could be the start of one.
-    if (!/^[A-Za-z_]*\*?$/.test(q) || /^\d/.test(q)) return [];
+    if (!/^[A-Za-z_]*\*?$/.test(q)) return [];
     for (const t of words) if (starts(t.name, q)) out.push({ text: `${t.name}.`, kind: 'type' });
     if (q === '' || q === '*') out.push({ text: '*.', kind: 'type' });
     return out.slice(0, MAX_SUGGESTIONS);

@@ -5,7 +5,6 @@ export interface Theme {
   dark: boolean;
   base: string;
   mantle: string;
-  crust: string;
   surface0: string;
   surface1: string;
   surface2: string;
@@ -44,12 +43,11 @@ export function readTheme(ctx: CanvasRenderingContext2D): Theme {
   const root = document.documentElement.dataset.theme;
   const dark = root === 'dark' || (root !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
   const stages = Array.from({ length: STAGE_COLORS }, (_, i) => get(`stage-${i}`));
-  const wash = parseFloat(get('wash')) || 0.3;
+  const wash = parseFloat(get('wash'));
   return {
     dark,
     base: get('base'),
     mantle: get('mantle'),
-    crust: get('crust'),
     surface0: get('surface0'),
     surface1: get('surface1'),
     surface2: get('surface2'),

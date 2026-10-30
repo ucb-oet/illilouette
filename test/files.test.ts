@@ -42,7 +42,7 @@ function canvas(): CanvasRenderingContext2D {
 const theme: Theme = {
   dark: false,
   ...Object.fromEntries(
-    ['base', 'mantle', 'crust', 'surface0', 'surface1', 'surface2', 'overlay0', 'overlay1', 'subtext0', 'subtext1', 'text', 'killed', 'blocked', 'event', 'accent'].map((k) => [k, '#4c4f69']),
+    ['base', 'mantle', 'surface0', 'surface1', 'surface2', 'overlay0', 'overlay1', 'subtext0', 'subtext1', 'text', 'killed', 'blocked', 'event', 'accent'].map((k) => [k, '#4c4f69']),
   ),
   stages: Array.from({ length: 8 }, () => '#209fb5'),
   cursors: Array.from({ length: 6 }, () => '#04a5e5'),

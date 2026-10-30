@@ -199,7 +199,6 @@ export class MemorySource implements Source {
       endedBy: r.end === null ? null : t[r.endedBy],
       normalEnd: r.normalEnd,
       fields: r.fields.map(fieldView),
-      parent: r.parent,
       ancestorTypes: ancestorTypes(w, r),
       events: r.events.map((e) => {
         const site = w.sites[e.site];

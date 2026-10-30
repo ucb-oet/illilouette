@@ -28,7 +28,7 @@ export function linkKind(role: Role): LinkKind {
   return role === 'abortedBy' ? 'aborted' : role === 'blockedBy' ? 'blocked' : 'other';
 }
 
-export interface TypeInfo {
+interface TypeInfo {
   name: string;
   stages: string[];
   /** The widest text at each label position, in characters, so that labels of one type line up. */
@@ -63,8 +63,6 @@ export interface RowView {
   normalEnd: boolean;
   fields: FieldView[];
   events: EventView[];
-  /** Its parent's row, if any. */
-  parent: number | null;
   /** The types of its ancestors, its parent's first; a row is indented once for each that is not hidden. */
   ancestorTypes: number[];
 }

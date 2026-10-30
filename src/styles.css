@@ -5,7 +5,7 @@
   /* Catppuccin Latte */
   --base: #eff1f5; --mantle: #e6e9ef; --crust: #dce0e8;
   --surface0: #ccd0da; --surface1: #bcc0cc; --surface2: #acb0be;
-  --overlay0: #9ca0b0; --overlay1: #8c8fa1; --overlay2: #7c7f93;
+  --overlay0: #9ca0b0; --overlay1: #8c8fa1;
   --subtext0: #6c6f85; --subtext1: #5c5f77; --text: #4c4f69;
   --sapphire: #209fb5; --peach: #fe640b; --mauve: #8839ef; --green: #40a02b;
   --pink: #ea76cb; --teal: #179299; --yellow: #df8e1d; --blue: #1e66f5;
@@ -44,7 +44,7 @@
     /* Catppuccin Mocha */
     --base: #1e1e2e; --mantle: #181825; --crust: #11111b;
     --surface0: #313244; --surface1: #45475a; --surface2: #585b70;
-    --overlay0: #6c7086; --overlay1: #7f849c; --overlay2: #9399b2;
+    --overlay0: #6c7086; --overlay1: #7f849c;
     --subtext0: #a6adc8; --subtext1: #bac2de; --text: #cdd6f4;
     --sapphire: #74c7ec; --peach: #fab387; --mauve: #cba6f7; --green: #a6e3a1;
     --pink: #f5c2e7; --teal: #94e2d5; --yellow: #f9e2af; --blue: #89b4fa;
@@ -63,7 +63,7 @@
   color-scheme: dark;
   --base: #1e1e2e; --mantle: #181825; --crust: #11111b;
   --surface0: #313244; --surface1: #45475a; --surface2: #585b70;
-  --overlay0: #6c7086; --overlay1: #7f849c; --overlay2: #9399b2;
+  --overlay0: #6c7086; --overlay1: #7f849c;
   --subtext0: #a6adc8; --subtext1: #bac2de; --text: #cdd6f4;
   --sapphire: #74c7ec; --peach: #fab387; --mauve: #cba6f7; --green: #a6e3a1;
   --pink: #f5c2e7; --teal: #94e2d5; --yellow: #f9e2af; --blue: #89b4fa;
@@ -360,4 +360,3 @@ kbd {
   .panel { width: auto; }
   .jump input { width: 11rem; }
 }
-@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }

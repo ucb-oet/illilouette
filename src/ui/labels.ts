@@ -16,20 +16,7 @@ export function labelFontSize(rowH: number): number {
   return rowH >= 18 ? 12 : 11;
 }
 
-export interface LabelColumns {
-  /** Whether rows show their type, which they do while several types are shown. */
-  showType: boolean;
-  /** The type column's width, with room for its deepest indent. */
-  typeW: number;
-  /** The ID column's width. */
-  idW: number;
-  /** How far a row's type name is indented, given its ancestors' types. */
-  indent(ancestorTypes: number[]): number;
-  /** The width that shows every label whole. */
-  fullW: number;
-}
-
-export function labelColumns(info: Info, hidden: ReadonlySet<number>, charW: number): LabelColumns {
+export function labelColumns(info: Info, hidden: ReadonlySet<number>, charW: number) {
   const shown = info.types.filter((_, i) => !hidden.has(i));
   const depth = (ancestors: number[]) => ancestors.filter((a) => !hidden.has(a)).length;
   const showType = shown.length > 1;
@@ -41,7 +28,7 @@ export function labelColumns(info: Info, hidden: ReadonlySet<number>, charW: num
     showType,
     typeW,
     idW,
-    indent: (ancestors) => depth(ancestors) * INDENT * charW,
+    indent: (ancestors: number[]) => depth(ancestors) * INDENT * charW,
     fullW: EDGE + typeW + idW + GAP + labelsW - GAP + EDGE,
   };
 }

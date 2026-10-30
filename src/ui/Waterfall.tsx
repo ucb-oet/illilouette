@@ -1,7 +1,6 @@
 // The waterfall canvas: sizing, pointer and wheel input, the label column's splitter, and the hover tooltip.
 import { useEffect, useRef } from 'preact/hooks';
 import { effectText, endText, fieldText, fmt, objectName, outcomeText, segmentAt, shortName } from '../model/present';
-import type { RowView } from '../model/source';
 import { Controller, CURSOR_GROUPS, RULER, useController } from './controller';
 import { drawWaterfall } from './render';
 import { onThemeChange, readTheme, type Theme } from './theme';
@@ -253,7 +252,7 @@ function CursorName({ c }: { c: Controller }) {
 /** Fills and places the tooltip for the hovered cell, or, over the label column, for the hovered row. Texts go in
  *  through textContent: they come from the file. */
 function showTip(c: Controller, tip: HTMLDivElement, rowIndex: number | null, cycle: number | null, x: number, y: number): void {
-  const r: RowView | undefined = rowIndex === null ? undefined : c.row(rowIndex);
+  const r = rowIndex === null ? undefined : c.row(rowIndex);
   const end = r ? (r.end ?? c.source.info.lastCycle + 1) : 0;
   if (!r || c.hiddenTypes.has(r.type) || (cycle !== null && (cycle < r.start || cycle > end))) {
     tip.hidden = true;

@@ -57,7 +57,7 @@ export const CURSOR_GROUPS = 6;
 export const LANE = 22;
 const STRIP_PAD = 6;
 
-export interface Hover {
+interface Hover {
   row: number | null;
   cycle: number | null;
   x: number;
@@ -389,7 +389,6 @@ export class Controller {
    *  to the parent. In a trace without parents, every row is a paragraph. With nothing selected, selects the top row on
    *  screen. */
   async moveParagraph(step: 1 | -1, times = 1): Promise<void> {
-    if (this.shownCount === 0) return;
     if (this.selected === null || this.placeOf(this.selected) < 0) return this.moveSelection(step);
     const start = this.selected;
     const depthAt = async (q: number) => this.depthOf(await this.rowAsync(this.rowAtPlace(q)));
@@ -801,7 +800,6 @@ export class Controller {
 
   /** Puts a shown type in focus. */
   setFocus(t: number): void {
-    if (this.hiddenTypes.has(t) || t === this.focusType) return;
     this.focusType = t;
     this.changed();
   }
@@ -848,8 +846,7 @@ export class Controller {
 }
 
 /** Re-renders a component whenever the controller's state changes. */
-export function useController(c: Controller): Controller {
+export function useController(c: Controller): void {
   const [, setTick] = useState(0);
   useEffect(() => c.subscribe(() => setTick((t) => t + 1)), [c]);
-  return c;
 }
