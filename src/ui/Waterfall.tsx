@@ -47,7 +47,7 @@ export function Waterfall({ c }: { c: Controller }) {
 
     // Pointer: drag to move, click to select, hover for the tooltip.
     let drag: { x: number; y: number; x0: number; y0: number; moved: boolean } | null = null;
-    const local = (ev: PointerEvent | WheelEvent) => {
+    const local = (ev: MouseEvent) => {
       const b = el.getBoundingClientRect();
       return { x: ev.clientX - b.left, y: ev.clientY - b.top };
     };
@@ -100,6 +100,12 @@ export function Waterfall({ c }: { c: Controller }) {
       }
       drag = null;
     };
+    // A double click on a label, whose first click selected its object, brings that object's events into view, as f
+    // does; the rows stay, so that the row stays under the pointer.
+    const onDouble = (ev: MouseEvent) => {
+      const { x, y } = local(ev);
+      if (x < c.gutterW && y < c.plotBottom && c.selected !== null && c.rowAtY(y) === c.selected) void c.focusSelected(false);
+    };
     const onLeave = () => {
       c.hover = null;
       tip.current!.hidden = true;
@@ -122,6 +128,7 @@ export function Waterfall({ c }: { c: Controller }) {
     el.addEventListener('pointerdown', onDown);
     el.addEventListener('pointermove', onMove);
     el.addEventListener('pointerup', onUp);
+    el.addEventListener('dblclick', onDouble);
     el.addEventListener('pointerleave', onLeave);
     el.addEventListener('wheel', onWheel, { passive: false });
 
@@ -153,6 +160,7 @@ export function Waterfall({ c }: { c: Controller }) {
       el.removeEventListener('pointerdown', onDown);
       el.removeEventListener('pointermove', onMove);
       el.removeEventListener('pointerup', onUp);
+      el.removeEventListener('dblclick', onDouble);
       el.removeEventListener('pointerleave', onLeave);
       el.removeEventListener('wheel', onWheel);
       sp.removeEventListener('pointerdown', onSplitDown);

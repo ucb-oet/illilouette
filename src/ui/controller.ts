@@ -497,8 +497,9 @@ export class Controller {
     this.clamp();
   }
 
-  /** Focus: the selected row in view, with its first event a third of the way in from the left. */
-  async focusSelected(): Promise<void> {
+  /** Focus: the selected row in view, with its first event a third of the way in from the left. With `rows` false, as
+   *  for a double click on its label, only time moves, since the row is on screen already. */
+  async focusSelected(rows = true): Promise<void> {
     if (this.selected === null) return;
     const row = await this.rowAsync(this.selected);
     if (this.placeOf(row.index) < 0) {
@@ -508,7 +509,7 @@ export class Controller {
       return;
     }
     const first = row.events.length ? row.events[0].cycle : row.start;
-    this.y0 = this.placeOf(row.index) * this.rowH - this.plotH / 3;
+    if (rows) this.y0 = this.placeOf(row.index) * this.rowH - this.plotH / 3;
     this.x0 = first - this.visibleCycles / 3;
     this.clamp();
     this.changed();

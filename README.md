@@ -46,6 +46,7 @@ Letters are as typed: a capital takes Shift.
 | `w` `a` `s` `d` | Move up, left, down, right |
 | Hover a label | The object, its whole label, and how it ended |
 | Click | Select an object and the cycle; its links and details appear |
+| Double-click a label | Bring that object's events into view, as `f` does; the rows stay where they are |
 | `f` | Bring the selection into view, its first event a third of the way in |
 | `↑` `↓` or `k` `j` | Move the selection a row, keeping its cycle, and scrolling rows only |
 | `←` `→` or `h` `l` | Move the selected cycle; from the selected object's first event when none is selected |

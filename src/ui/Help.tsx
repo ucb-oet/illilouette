@@ -43,6 +43,7 @@ const GROUPS: { name: string; keys: [string[], string][]; examples?: [string, st
     name: 'Select',
     keys: [
       [['Click'], 'Select an object and the cycle'],
+      [['Double-click'], 'On a label, bring its object\'s events into view, as f does'],
       [['↑', '↓'], 'Move the selection a row, keeping its cycle; or k j'],
       [['←', '→'], 'Move the selected cycle; or h l'],
       [['[', ']'], "Move the selected cycle to the object's previous or next event"],

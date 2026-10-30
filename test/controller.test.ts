@@ -124,6 +124,24 @@ describe('Panning to a selected object\'s start and end', () => {
   });
 });
 
+describe('Focusing the selected object', () => {
+  it('puts its row a third of the way down and its first event a third of the way in; from a label, only time moves', async () => {
+    const c = await stairs();
+    // instruction#100: decode at 202, retired after 205.
+    const i = await rowOf(c, 100, INSTRUCTION);
+    c.select(i);
+    await c.focusSelected();
+    expect(c.rowY(i)).toBeCloseTo(RULER + c.plotH / 3);
+    expect(c.xOf(202)).toBeCloseTo(c.gutterW + c.plotW / 3);
+    c.x0 = 0;
+    c.y0 += 5 * c.rowH;
+    const y0 = c.y0;
+    await c.focusSelected(false);
+    expect(c.y0).toBe(y0);
+    expect(c.xOf(202)).toBeCloseTo(c.gutterW + c.plotW / 3);
+  });
+});
+
 describe('Jumping to an object', () => {
   it('says why it found nothing, and selects what it finds', async () => {
     const c = await stairs();
