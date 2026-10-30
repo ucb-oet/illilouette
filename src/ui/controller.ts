@@ -20,6 +20,8 @@ export interface Link {
 export const ZOOM_STEP = 1.25;
 /** From this width up, cells are drawn one by one, so they snap to whole pixels for crisp edges. */
 export const WHOLE_CELLS = 8;
+/** Room the view keeps past either end of the trace, in pixels: 3 cycles at the size a file opens with. */
+const EDGE = 66;
 
 /** A size after a zoom, in whole pixels from `whole` up. A key moves the drawn size at least a pixel; the wheel and
  *  pinch keep an exact level so small turns add up, restarting it when the size was set other than by zooming. */
@@ -264,8 +266,8 @@ export class Controller {
 
   clamp(): void {
     const { firstCycle, lastCycle } = this.source.info;
-    const visible = this.visibleCycles;
-    this.x0 = Math.min(Math.max(this.x0, firstCycle - visible * 0.5), lastCycle + 1 - visible * 0.5);
+    const edge = EDGE / this.cellW;
+    this.x0 = Math.max(Math.min(this.x0, lastCycle + 1 + edge - this.visibleCycles), firstCycle - edge);
     this.y0 = Math.min(Math.max(0, this.y0), Math.max(0, this.shownCount * this.rowH - this.plotH + this.rowH * 2));
   }
 
@@ -273,7 +275,12 @@ export class Controller {
   zoomTime(x: number, factor: number, key = false): void {
     const px = Math.max(0, x - this.gutterW);
     const cycle = this.x0 + px / this.cellW;
-    ({ drawn: this.cellW, exact: this.cellLevel } = zoomSize(this.cellW, this.cellLevel, factor, key, 0.05, 64, WHOLE_CELLS));
+    // Out no further than the whole trace fits, nor past the size it is at.
+    const { firstCycle, lastCycle } = this.source.info;
+    let fit = (this.plotW - 2 * EDGE) / (lastCycle + 1 - firstCycle);
+    if (fit >= WHOLE_CELLS) fit = Math.ceil(fit);
+    const min = Math.max(0.05, Math.min(fit, this.cellW));
+    ({ drawn: this.cellW, exact: this.cellLevel } = zoomSize(this.cellW, this.cellLevel, factor, key, min, 64, WHOLE_CELLS));
     this.x0 = cycle - px / this.cellW;
     this.settle();
   }
@@ -763,7 +770,7 @@ export class Controller {
     this.rowH = Math.max(16, Math.min(22, Math.floor(this.plotH / 40)));
     const { fullW } = labelColumns(this.source.info, this.hiddenTypes, labelFontSize(this.rowH) * CHAR_EM);
     this.gutterW = Math.round(Math.min(fullW, this.width * 0.4));
-    this.x0 = (first?.start ?? this.source.info.firstCycle) - 3;
+    this.x0 = (first?.start ?? this.source.info.firstCycle) - EDGE / this.cellW;
     this.y0 = 0;
     this.settle();
   }

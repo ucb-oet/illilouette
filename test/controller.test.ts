@@ -403,6 +403,28 @@ describe('Zoom sizes', () => {
   });
 });
 
+describe('Time in view', () => {
+  it('zooms out until the whole trace fits, and pans only a little past either end', async () => {
+    const c = await stairs();
+    const { firstCycle, lastCycle } = c.source.info;
+    for (let k = 0; k < 40; k++) c.zoomTime(c.gutterW, 1 / ZOOM_STEP, true);
+    const fitted = c.cellW;
+    expect(c.xOf(firstCycle)).toBeGreaterThan(c.gutterW);
+    expect(c.xOf(lastCycle + 1)).toBeLessThan(c.width);
+    expect((lastCycle + 1 - firstCycle) * c.cellW).toBeGreaterThan(0.8 * c.plotW);
+    c.zoomTime(c.gutterW, 1 / ZOOM_STEP);
+    expect(c.cellW).toBe(fitted);
+
+    c.zoomTime(c.gutterW, 2);
+    c.panTime(-1e6);
+    expect(c.xOf(firstCycle) - c.gutterW).toBeGreaterThan(0);
+    expect(c.xOf(firstCycle) - c.gutterW).toBeLessThan(100);
+    c.panTime(1e6);
+    expect(c.width - c.xOf(lastCycle + 1)).toBeGreaterThan(0);
+    expect(c.width - c.xOf(lastCycle + 1)).toBeLessThan(100);
+  });
+});
+
 describe('Links of the selected row', () => {
   it('say what each linked object is to it, and show only the kinds chosen, parents starting hidden', async () => {
     const c = await open(pipeline());

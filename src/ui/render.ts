@@ -74,8 +74,9 @@ export function drawWaterfall(ctx: CanvasRenderingContext2D, c: Controller, th: 
     const r = c.row(c.rowAtPlace(p));
     if (r) rows.push(r);
   }
-  const cStart = Math.floor(c.x0);
-  const cEnd = Math.ceil(c.x0 + c.visibleCycles);
+  // Ticks and grid lines only on the trace's own cycles.
+  const cStart = Math.max(c.source.info.firstCycle, Math.floor(c.x0));
+  const cEnd = Math.min(c.source.info.lastCycle, Math.ceil(c.x0 + c.visibleCycles));
   const step = niceStep(72 / cw);
   // The selection's tint is stronger on the label column's darker ground.
   const relatedRows = new Set(c.shownRelated.flatMap((a) => [a.from, a.to]));
