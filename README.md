@@ -34,46 +34,21 @@ Open the page and drop a waterfall file on it, or choose one. A gzipped file, su
 
 ## Using it
 
-Letters are as typed: a capital takes Shift.
-
 | Input | Does |
 |---|---|
 | Scroll / two-finger swipe | Move through rows; sideways or with Shift, pan time |
-| Click or drag the timeline bar | Move there; rows follow to the first object in the new range |
+| Drag | Move |
 | Pinch, Ctrl or Cmd+scroll | Zoom time; with Shift held, zoom rows |
-| `q` / `e` | Zoom time out / in |
-| `Q` / `E` | Zoom rows |
-| `w` `a` `s` `d` | Move up, left, down, right |
+| Click or drag the timeline bar | Move there; rows follow to the first object in the new range |
 | Hover a label | The object, its whole label, and how it ended |
 | Click | Select an object and the cycle; its links and details appear |
-| Double-click a label | Bring that object's events into view, as `f` does; the rows stay where they are |
-| `f` | Bring the selection into view, its first event a third of the way in |
-| `↑` `↓` or `k` `j` | Move the selection a row, keeping its cycle, and scrolling rows only |
-| `←` `→` or `h` `l` | Move the selected cycle; from the selected object's first event when none is selected |
-| `Esc` | Clear the selection and the selected cycle |
-| `z1`–`z9` | Show or hide an object type; its rows close up |
-| `t` / `T` | Focus the next or previous shown type; a file opens with the type its design's view names in focus, such as instruction, or else its first |
-| `0` / `$` | Select the selection's first or last event's cycle, and pan to it, as vim's start and end of line |
-| `[` / `]` | Move the selected cycle to the selected object's previous or next event |
-| `{` / `}` | Move by paragraphs, as in vim: a row and the rows under it, so `}` goes past the selected row's children to the next row as shallow or shallower. From a row with nothing under it, such as a micro-op, `}` goes past the rest of its parent's rows and `{` back to the parent |
-| `J` / `K` | Move the selection down or up the selected cycle, to the next row with anything there, keeping the cycle; with nothing selected, `J` finds the first such row |
-| `gg` / `G` | Select the first or last row shown, and bring it into view |
-| `H` / `M` / `L` | Select the top, middle, or bottom row on screen |
-| `zz` / `zt` / `zb` | Scroll the selected row to the middle, top, or bottom of the screen; time stays |
-| A count | Repeats a move, as in vim: `20j`, `5l`, `3n`, `2]`. Keys waiting for the rest of a command show in the status bar, and `Esc` drops them |
-| `i` | Put a cursor on the edge where the selected cycle starts, as vim's `i` inserts before the cursor, and name it: type a name, or keep its cycle, then Enter or `Esc`. Beside the name are six colors, one per group, the last used chosen; a click or Tab picks another. The distance shown is to the cursor before in the same group |
-| `I` / `A` | Put a cursor at the selected object's start, or after its end, as vim's `I` and `A` insert at the start and end of the line; selects its first or last event's cycle, as `0` and `$` do |
-| `x` | Remove the cursor at the selected cycle: on the edge where it starts, or else the edge after it |
-| `c` | Open the cursor panel: each group's cursors and the distances between them. A click on a name renames it, on a color moves the cursor to another group, on × removes it, and on its cycle pans to it |
-| `r` | Show or hide links for everything on screen; none show once zoomed out a step past where the label column loses its text or the cells their letters |
-| `/` | Jump to a cycle (`41440`) or an object (`#3454`, `instruction#3454`), or search; once it lands, keys move the view again |
-| `n` / `N` | Go to the next or previous match of the search |
-| `o` | Open the view panel: types shown and in focus, aborted objects, the kinds of link shown. It leaves the waterfall usable; anything hidden shows as a count in the header and a dot on its button |
-| `?` | List these keys |
+| Double-click a label | Bring that object's events into view; the rows stay where they are |
+
+Everything else has a key, read as vim reads them: counts such as `20j`, `gg` and `G`, `H` `M` `L`, `zz` `zt` `zb`, `{` and `}`, `0` and `$`, and `i` `I` `A` `x` for cursors. Press `?` in the viewer for the list; `o` opens the view panel and `c` the cursor panel.
 
 Rows come in the file's order. An object with a parent sits under it, such as a Rocket instruction under the fetch packet it decoded from, its type name indented; hiding the parent's type takes the indent away.
 
-How much a row shows follows the zoom: lettered cells up close, one run per stage in the middle, solid rows far out. One object type is in focus and drawn in full; every other type keeps only the bar along the bottom of its cells, so that packets and instructions, say, tell apart. Hatched cycles, or a dashed bar in a type not in focus, are cycles in which an object was held in its stage. An amber dot marks an event that finds its object blocked, such as a stall; a smaller gray dot marks any other event that describes an object without moving or ending it. A red cap marks an aborted object, one that ended other than by its type's normal end, such as a squashed instruction. Links join an object to each object its events name, colored by what that object is to it: red for what aborted it, amber for what blocks it, and gray for anything else, such as its parent. A link has no arrowhead: it runs into the mark it explains, the amber dot or the red cap. The view panel picks which kinds show; parents start hidden, since the rows' order and indent already show them. Cursors are lines in their group's color. While there are any, a strip along the bottom of the waterfall has a lane per group, holding its cursors' names and cycles and the distances between neighbors, so that the ruler is left to time.
+How much a row shows follows the zoom: lettered cells up close, one run per stage in the middle, solid rows far out. One object type is in focus and drawn in full, at first the one the design's view names, such as instruction; every other type keeps only the bar along the bottom of its cells, so that packets and instructions, say, tell apart. Hatched cycles, or a dashed bar in a type not in focus, are cycles in which an object was held in its stage. An amber dot marks an event that finds its object blocked, such as a stall; a smaller gray dot marks any other event that describes an object without moving or ending it. A red cap marks an aborted object, one that ended other than by its type's normal end, such as a squashed instruction. Links join an object to each object its events name, colored by what that object is to it: red for what aborted it, amber for what blocks it, and gray for anything else, such as its parent. A link has no arrowhead: it runs into the mark it explains, the amber dot or the red cap. The view panel picks which kinds show; parents start hidden, since the rows' order and indent already show them. Cursors are lines in their group's color. While there are any, a strip along the bottom of the waterfall has a lane per group, holding its cursors' names and cycles and the distances between neighbors, so that the ruler is left to time.
 
 ## Searching
 
@@ -89,7 +64,7 @@ Type a search in the jump box. It takes one term, with no patterns to learn:
 
 Values match whole: numbers by value, so `0x80000050` matches `0x0080000050`; causes and other fixed choices by name; objects as `type#id`. Tab completes the file's own types, fields, events, and the values a field takes when they are few. A name the file does not have gets a message listing the ones it does.
 
-The box counts the matches as you type. Enter goes to the first match after the selection, selecting the object and the cycle, and hands the keys back; `n` and `N` then go on through the matches, down and up the rows, as vim's `n` goes through a buffer. Matching rows are marked at the left of the label column and on the timeline bar. Objects of hidden types are left out, and the count says how many. Emptying the box ends the search.
+The box counts the matches as you type. Enter goes to the first match after the selection, selecting the object and the cycle, and hands the keys back; `n` and `N` then go on through the matches, down and up the rows, as vim's `n` goes through a buffer. Matching rows are marked at the left of the label column and on the timeline bar. Hidden objects are left out, and the count says how many. Emptying the box ends the search.
 
 ## Layout
 
@@ -98,7 +73,7 @@ The box counts the matches as you type. Enter goes to the first match after the 
 - `public/example/`: the example the landing page opens, served with the page. Regenerate it from Chipyard's output when the format changes, as `src/example.ts` shows; `test/example.test.ts` checks that it opens and carries the link roles.
 - `src/file/`: protobuf decoding of the file.
 - `src/model/`: the source interface the drawing code reads rows through, the in-memory source, and text derived for display.
-- `src/ui/`: the page: controller, canvas renderer, timeline bar, detail panel, header.
+- `src/ui/`: the page and its controller.
 - `test/`: tests on small waterfall files built in code (`test/build.ts`), which pin exact values, and smoke tests (`test/files.test.ts`) over every waterfall file under `test/fixtures`, a link to a Chipyard checkout's output that is not kept in the repo:
 
   ```sh
