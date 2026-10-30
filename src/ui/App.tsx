@@ -1,5 +1,5 @@
 // The page: a landing that opens a waterfall file, then the viewer with its keys.
-import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { EXAMPLE } from '../example';
 import { readWaterfall, WaterfallError } from '../file/waterfall';
 import { MemorySource } from '../model/memory';
@@ -57,6 +57,7 @@ function Landing({ onOpen }: { onOpen: (f: File) => Promise<void> }) {
   // What is being opened, a chosen file or the example, and how much of the example has arrived.
   const [busy, setBusy] = useState<'file' | 'example' | null>(null);
   const [arrived, setArrived] = useState<number | null>(null);
+  const picker = useRef<HTMLInputElement>(null);
   const open = async (file: File | (() => Promise<File>)) => {
     setBusy(file instanceof File ? 'file' : 'example');
     setArrived(null);
@@ -98,23 +99,27 @@ function Landing({ onOpen }: { onOpen: (f: File) => Promise<void> }) {
           <code>eventtrace waterfall</code> writes it from a trace, its manifest, and the design's view.
         </p>
         <div class="choices">
-          <label class="plain">
+          {/* A button that opens a hidden input, rather than a label over a transparent one: Safari draws a file
+              input's own button past its box, where it took clicks meant for the example's. */}
+          <button type="button" class="plain" onClick={() => picker.current?.click()}>
             {busy === 'file' ? 'Opening…' : 'Choose a file'}
-            <input
-              type="file"
-              accept=".pb,.waterfall,.gz"
-              onChange={(e) => {
-                const input = e.target as HTMLInputElement;
-                const f = input.files?.[0];
-                // Cleared, so that choosing the same file again, after fixing it, opens it again.
-                input.value = '';
-                if (f) void open(f);
-              }}
-            />
-          </label>
+          </button>
           <button type="button" class="plain" disabled={busy !== null} onClick={() => void open(() => fetchExample(setArrived))}>
             {exampleLabel}
           </button>
+          <input
+            ref={picker}
+            type="file"
+            accept=".pb,.waterfall,.gz"
+            hidden
+            onChange={(e) => {
+              const input = e.target as HTMLInputElement;
+              const f = input.files?.[0];
+              // Cleared, so that choosing the same file again, after fixing it, opens it again.
+              input.value = '';
+              if (f) void open(f);
+            }}
+          />
         </div>
         <p class="note">
           The example is <code>vec-strlen</code>, a vectorized strlen, traced on Rocket with Saturn's vector unit.
