@@ -102,6 +102,11 @@ describe('The type in focus', () => {
     await c.toggleType(INSTRUCTION);
     expect(c.focusType).toBe(INSTRUCTION);
   });
+
+  it('starts at the type the file names, or the first when it names one it does not have', async () => {
+    expect((await open({ ...staircase(10), focus: INSTRUCTION })).focusType).toBe(INSTRUCTION);
+    expect((await open({ ...staircase(10), focus: 7 })).focusType).toBe(FETCH);
+  });
 });
 
 describe('Panning to a selected object\'s start and end', () => {

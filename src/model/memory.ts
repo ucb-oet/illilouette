@@ -41,6 +41,8 @@ export class MemorySource implements Source {
         }
         return { name: t[type.name], stages: type.stages.map((s) => t[s]), labelWidths, idWidth, ancestorTypes: ancestors };
       }),
+      // A type the file does not have, as a damaged file might name, reads as the first.
+      focus: w.focus < w.types.length ? w.focus : 0,
       summary: w.types.map((type, ti) => summarize(t[type.name], ti, w)),
       links: countLinks(w),
     };

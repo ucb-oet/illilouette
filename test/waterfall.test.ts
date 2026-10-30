@@ -8,6 +8,8 @@ describe('decodeWaterfall', () => {
   it('reads back every field of a file', () => {
     const w = pipeline();
     expect(decodeWaterfall(encode(w))).toEqual(w);
+    const focused = { ...pipeline(), focus: 1 };
+    expect(decodeWaterfall(encode(focused))).toEqual(focused);
   });
 
   it('tells a parent at row 0 from none, and a live object from one that ended', () => {

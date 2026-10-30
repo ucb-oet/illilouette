@@ -10,6 +10,8 @@ export interface Info {
   firstCycle: number;
   lastCycle: number;
   types: TypeInfo[];
+  /** The type in focus when the file opens, as the design's view names it, or the first. */
+  focus: number;
   rowCount: number;
   summary: TypeSummary[];
   /** Links in the file, by kind: fields naming another object. */

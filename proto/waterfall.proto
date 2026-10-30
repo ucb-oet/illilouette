@@ -22,6 +22,9 @@ message Waterfall {
   repeated Type types = 7;
   // In display order.
   repeated Row rows = 8;
+  // Index into types of the type in focus when the file opens, drawn in full, as the design's view names it, such as
+  // "instruction"; 0, the first type, when the view names none.
+  uint32 focus = 9;
 }
 
 // Where events are emitted. Texts by index.

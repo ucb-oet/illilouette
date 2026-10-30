@@ -92,8 +92,9 @@ export class Controller {
   viewOpen = false;
   /** Keys read but waiting for the rest of their command, such as a count or the g of gg, shown in the status bar. */
   keysPending = '';
-  /** The type drawn in full; every other type keeps only its bars. A file opens with its first type in focus. */
-  focusType = 0;
+  /** The type drawn in full; every other type keeps only its bars. A file opens with the type its design's view names
+   *  in focus, or its first. */
+  focusType: number;
   /** Links for the selected row, of every kind: from each object it names to it, and from it to each row that names
    *  it. */
   related: Link[] = [];
@@ -140,7 +141,9 @@ export class Controller {
   private listeners = new Set<() => void>();
   private redrawHook: (() => void) | null = null;
 
-  constructor(readonly source: Source) {}
+  constructor(readonly source: Source) {
+    this.focusType = source.info.focus;
+  }
 
   setSize(width: number, height: number): void {
     this.width = Math.max(1, width);

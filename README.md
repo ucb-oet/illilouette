@@ -52,7 +52,7 @@ Letters are as typed: a capital takes Shift.
 | `←` `→` or `h` `l` | Move the selected cycle; from the selected object's first event when none is selected |
 | `Esc` | Clear the selection and the selected cycle |
 | `z1`–`z9` | Show or hide an object type; its rows close up |
-| `t` / `T` | Focus the next or previous shown type; a file opens with its first type in focus |
+| `t` / `T` | Focus the next or previous shown type; a file opens with the type its design's view names in focus, such as instruction, or else its first |
 | `0` / `$` | Select the selection's first or last event's cycle, and pan to it, as vim's start and end of line |
 | `[` / `]` | Move the selected cycle to the selected object's previous or next event |
 | `{` / `}` | Move by paragraphs, as in vim: a row and the rows under it, so `}` goes past the selected row's children to the next row as shallow or shallower. From a row with nothing under it, such as a micro-op, `}` goes past the rest of its parent's rows and `{` back to the parent |

@@ -44,6 +44,8 @@ export interface FileSpec {
   lastCycle: number;
   types: { name: string; stages: string[] }[];
   rows: RowSpec[];
+  /** The type in focus when the file opens; the first when left out. */
+  focus?: number;
 }
 
 /** A waterfall from a spec, its texts interned as the reader writes them, index 0 the empty text. */
@@ -98,6 +100,7 @@ export function build(spec: FileSpec): Waterfall {
       })),
       parent: r.parent ?? null,
     })),
+    focus: spec.focus ?? 0,
   };
 }
 
@@ -178,6 +181,7 @@ export function encode(w: Waterfall): Uint8Array {
       if (r.parent !== null) num(10, r.parent);
     }));
   }
+  if (w.focus) num(9, w.focus);
   return new Uint8Array(out);
 }
 

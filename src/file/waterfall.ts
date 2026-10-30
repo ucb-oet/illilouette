@@ -13,6 +13,8 @@ export interface Waterfall {
   sites: Site[];
   types: Type[];
   rows: Row[];
+  /** Index into types of the type in focus when the file opens. */
+  focus: number;
 }
 
 export interface Site {
@@ -89,7 +91,7 @@ async function gunzip(bytes: Uint8Array): Promise<Uint8Array> {
 }
 
 export function decodeWaterfall(bytes: Uint8Array): Waterfall {
-  const w: Waterfall = { version: 0, title: '', firstCycle: 0, lastCycle: 0, strings: [], sites: [], types: [], rows: [] };
+  const w: Waterfall = { version: 0, title: '', firstCycle: 0, lastCycle: 0, strings: [], sites: [], types: [], rows: [], focus: 0 };
   const r = new Reader(bytes);
   try {
     while (!r.done()) {
@@ -102,6 +104,7 @@ export function decodeWaterfall(bytes: Uint8Array): Waterfall {
       else if (field === 6 && wire === Wire.Bytes) w.sites.push(site(r.message()));
       else if (field === 7 && wire === Wire.Bytes) w.types.push(type(r.message()));
       else if (field === 8 && wire === Wire.Bytes) w.rows.push(row(r.message()));
+      else if (field === 9 && wire === Wire.Varint) w.focus = r.varint();
       else r.skip(wire);
     }
   } catch (e) {
