@@ -5,14 +5,13 @@ import { fmt } from '../model/present';
 import { suggest, type Suggestion } from '../model/search';
 import { Controller, useController } from './controller';
 import { CursorPanel } from './CursorPanel';
-import { applyThemeChoice, isDark, loadThemeChoice, onThemeChange, type ThemeChoice } from './theme';
+import { ThemeButton } from './ThemeButton';
 import { ViewPanel } from './ViewPanel';
 
 export function Header({ c, onOpen }: { c: Controller; onOpen: (file: File) => Promise<void> }) {
   useController(c);
   const info = c.source.info;
   const [query, setQuery] = useState('');
-  const [theme, setTheme] = useState<ThemeChoice>(loadThemeChoice());
   const [focused, setFocused] = useState(false);
   /** The completion picked with the arrow keys, or -1. */
   const [picked, setPicked] = useState(-1);
@@ -24,10 +23,6 @@ export function Header({ c, onOpen }: { c: Controller; onOpen: (file: File) => P
   useEffect(() => {
     if (picked >= 0) list.current?.children[picked]?.scrollIntoView({ block: 'nearest' });
   }, [picked]);
-  // The theme button follows the system's setting while no choice is made.
-  const [, setThemeTick] = useState(0);
-  useEffect(() => onThemeChange(() => setThemeTick((n) => n + 1)), []);
-  const dark = isDark(theme);
 
   /** A cycle or an object to jump to, rather than a search. */
   const isJump = (q: string) => /^\d[\d,]*$/.test(q) || /^([A-Za-z_][\w.]*)?#\d+$/.test(q);
@@ -79,10 +74,6 @@ export function Header({ c, onOpen }: { c: Controller; onOpen: (file: File) => P
   const at = c.matchAt;
   const count = !s || s.error ? '' : !s.matches.length ? 'no matches' : at >= 0 ? `${fmt(at + 1)} of ${fmt(s.matches.length)}` : `${fmt(s.matches.length)} ${s.matches.length === 1 ? 'match' : 'matches'}`;
   const skipped = s && !s.error && s.skipped ? ` · ${fmt(s.skipped)} hidden` : '';
-  const choose = (t: ThemeChoice) => {
-    setTheme(t);
-    applyThemeChoice(t);
-  };
 
   return (
     <header class="top">
@@ -193,15 +184,7 @@ export function Header({ c, onOpen }: { c: Controller; onOpen: (file: File) => P
           </button>
           <ViewPanel c={c} anchor={viewButton} />
         </div>
-        <button
-          type="button"
-          class="plain icon"
-          onClick={() => choose(dark ? 'light' : 'dark')}
-          title={dark ? 'Switch to Latte, the light palette' : 'Switch to Mocha, the dark palette'}
-          aria-label={dark ? 'Switch to the light palette' : 'Switch to the dark palette'}
-        >
-          {dark ? <Sun /> : <Moon />}
-        </button>
+        <ThemeButton />
         <label class="plain">
           Open…
           <input
@@ -237,23 +220,6 @@ function Sliders() {
       <path d="M2.5 4.5h6M11.5 4.5h2M2.5 11.5h2M7.5 11.5h6" />
       <circle cx="10" cy="4.5" r="1.5" />
       <circle cx="6" cy="11.5" r="1.5" />
-    </svg>
-  );
-}
-
-function Sun() {
-  return (
-    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
-      <circle cx="8" cy="8" r="3" />
-      <path d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1.06 1.06M11.54 11.54l1.06 1.06M3.4 12.6l1.06-1.06M11.54 4.46l1.06-1.06" />
-    </svg>
-  );
-}
-
-function Moon() {
-  return (
-    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true">
-      <path d="M13.5 9.6A5.75 5.75 0 1 1 6.4 2.5a4.6 4.6 0 0 0 7.1 7.1z" />
     </svg>
   );
 }

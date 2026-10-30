@@ -11,6 +11,7 @@ import { readKey } from './keys';
 import { Help } from './Help';
 import { DETAIL_NAMES, detailOf } from './render';
 import { applyThemeChoice, loadThemeChoice } from './theme';
+import { ThemeButton } from './ThemeButton';
 import { TimelineBar } from './TimelineBar';
 import { Waterfall } from './Waterfall';
 
@@ -79,6 +80,7 @@ function Landing({ onOpen }: { onOpen: (f: File) => Promise<void> }) {
           : 'Opening…';
   return (
     <main class="landing">
+      <ThemeButton />
       <div
         class={over ? 'drop over' : 'drop'}
         onDragOver={(e) => {
@@ -93,11 +95,9 @@ function Landing({ onOpen }: { onOpen: (f: File) => Promise<void> }) {
           if (f) void open(f);
         }}
       >
-        <h1>illilouette</h1>
-        <p>
-          A pipeline waterfall for EventTrace. Drop a waterfall file here, gzipped or not, or choose one. Chipyard's{' '}
-          <code>eventtrace waterfall</code> writes it from a trace, its manifest, and the design's view.
-        </p>
+        <h1>
+          <strong>illilouette</strong>: an online event trace viewer
+        </h1>
         <div class="choices">
           {/* A button that opens a hidden input, rather than a label over a transparent one: Safari draws a file
               input's own button past its box, where it took clicks meant for the example's. */}
@@ -121,9 +121,6 @@ function Landing({ onOpen }: { onOpen: (f: File) => Promise<void> }) {
             }}
           />
         </div>
-        <p class="note">
-          The example is <code>vec-strlen</code>, a vectorized strlen, traced on Rocket with Saturn's vector unit.
-        </p>
         {error && <p class="error">{error}</p>}
         {/* TODO: connect to a local server for files too large to load in the browser. */}
       </div>
